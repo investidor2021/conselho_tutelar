@@ -1,0 +1,180 @@
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 15px;
+    background-color: #f4f4f4;
+}
+
+h1 {
+   color: #0056b3;
+   border-bottom: 2px solid #ccc;
+   padding-bottom: 5px;
+   text-align: center;
+}
+ h2 {
+   color: #0056b3;
+   border-bottom: 1px solid #ddd;
+   padding-bottom: 3px;
+   margin-top: 25px;
+}
+
+
+.form-container,
+.results-container {
+     background-color: #fff;
+     padding: 25px;
+     margin-bottom: 20px;
+     border-radius: 8px;
+     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    align-items: start; /* Alinha os itens no topo de suas células */
+}
+
+/* Grid específico para os campos menores lado a lado */
+.form-grid-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Duas colunas de igual largura */
+    gap: 15px;
+    align-items: start;
+}
+
+
+#rescisaoCampos .form-grid { /* Mantém o original para rescisão */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+.form-group.full-width{
+    grid-column: 1 / -1;
+}
+.form-group.checkbox-item {
+    display: flex; /* Garante que o display flex seja aplicado */
+    flex-direction: row;
+    align-items: center;
+    margin-top: 5px; /* Espaçamento para checkboxes */
+}
+.form-group.checkbox-item input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    flex-shrink: 0; /* Impede que o checkbox encolha */
+}
+.form-group.checkbox-item label {
+    margin-bottom: 0; /* Remove margem inferior para labels de checkbox */
+    font-weight: normal; /* Labels de checkbox geralmente não são bold por padrão */
+    margin-left: 5px;  /* Espaço entre checkbox e label */
+}
+
+
+label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+ small {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 3px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="month"],
+select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.95em;
+}
+/* Para o campo de salário, permitir que o texto seja alinhado à direita após formatação */
+input#salarioBase.formatted,
+input#tetoInssValor.formatted,
+input#feriasVencidas.formatted {
+    text-align: right;
+}
+
+
+.checkbox-group {
+    margin-bottom: 15px;
+    padding-top: 10px; /* Espaço acima dos checkboxes */
+}
+.checkbox-group > div.checkbox-item-container { /* Cada item principal de checkbox e sua info */
+    margin-bottom: 15px;
+}
+
+
+/* Labels dos checkboxes principais já cobertos por .form-group.checkbox-item label */
+
+.checkbox-group .info-ferias, .info#infoRescisao {
+    font-size: 0.85em;
+    color: #555;
+    margin-left: 28px; /* Alinha com o texto do label do checkbox */
+    display: block;
+    margin-top: 3px;
+    line-height: 1.4;
+}
+.info#infoRescisao { /* Para o texto de ajuda da rescisão */
+    background-color: transparent; /* Remove fundo se for só texto de ajuda */
+    padding: 0;
+    border: none;
+    color: #555; /* Cor similar ao info-ferias */
+}
+
+
+button {
+   padding: 12px 20px;
+   background-color: #0056b3;
+   color: white;
+   border: none;
+   border-radius: 5px;
+   cursor: pointer;
+   font-size: 1em;
+   margin-top: 15px;
+   margin-right: 10px;
+}
+button:hover {
+   background-color: #004085;
+}
+
+button#btnPdf {
+  background-color: #c82333;
+}
+button#btnPdf:hover {
+  background-color: #a21b29;
+}
+
+#resultado {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #e9ecef;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+ .resumo-item {
+     display: flex;
+     justify-content: space-between;
+     padding: 6px 0; /* Aumentado o padding vertical */
+     border-bottom: 1px dotted #ccc;
+     font-size: 0.95em;
+ }
+  .resumo-item:last-child { /* Remove a borda do último item para não duplicar com a do total */
+     border-bottom: none;
+  }
+  .resumo-item.total {
+    font-weight: bold;
+    font-size: 1.1em����������������������������������������乂乜凵匚厂万丌乇亍囗兀屮彳丏冇与丮亓仂仉仈冘勼卬厹圠夃夬尐巿旡殳毌气爿丱丼仨仜仩仡仝仚刌匜卌圢圣夗夯宁宄尒尻屴屳帄庀庂忉戉扐氕����������������������������������氶汃氿氻犮犰玊禸肊阞伎优伬仵伔仱伀价伈伝伂伅伢伓伄仴伒冱刓刉刐劦匢匟卍厊吇囡囟圮圪圴夼妀奼妅奻奾奷奿孖尕尥屼屺屻屾巟幵庄异弚彴忕忔忏扜扞扤扡扦扢扙扠扚扥旯旮朾朹朸朻机朿朼朳氘汆汒汜汏汊汔汋�".split("");for(a=0;a!=t[201].length;++a)if(t[201][a].charCodeAt(0)!==65533){r[t[201][a]]=51456+a;e[51456+a]=t[201][a]}t[202]="����������������������������������������������������������������汌灱牞犴犵玎甪癿穵网艸艼芀艽艿虍襾邙邗邘邛邔阢阤阠阣佖伻佢佉体佤伾佧佒佟佁佘伭伳伿佡冏冹刜刞刡劭劮匉卣卲厎厏吰吷吪呔呅吙吜吥吘����������������������������������吽呏呁吨吤呇囮囧囥坁坅坌坉坋坒夆奀妦妘妠妗妎妢妐妏妧妡宎宒尨尪岍岏岈岋岉岒岊岆岓岕巠帊帎庋
