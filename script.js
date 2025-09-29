@@ -22,9 +22,9 @@ const FAIXAS_IRRF = [
 let calculoAtual = {}; // Objeto para armazenar todos os dados do cálculo atual e projeções
 
 // --- Referências aos Elementos do DOM ---
-const btnCalcular = document.getElementById('btnCalcular');
-const btnPdf = document.getElementById('btnPdf');
-const divResultado = document.getElementById('divResultado');
+//const btnCalcular = document.getElementById('btnCalcular');
+//const btnPdf = document.getElementById('btnPdf');
+//const divResultado = document.getElementById('divResultado');
 const resultadoHtml = document.getElementById('resultado');
 
 const fldNome = document.getElementById('conselheiroNome');
