@@ -5,6 +5,12 @@
 const SALARIO_MINIMO_NACIONAL = 1412.00;
 const ALIQUOTA_INSS_INDIVIDUAL = 0.11;
 
+// --- Referências aos Elementos do DOM ---
+const btnCalcular = document.getElementById('btnCalcular');
+const btnPdf = document.getElementById('btnPdf');
+const btnSalvarFirebase = document.getElementById('btnSalvarFirebase'); // <-- ADICIONE ESTA LINHA
+const divResultado = document.getElementById('divResultado');
+
 const FAIXAS_IRRF = [
  { baseAte: 2259.20, aliquota: 0.0,   deducao: 0.0 },
  { baseAte: 2826.65, aliquota: 0.075, deducao: 169.44 },
@@ -405,6 +411,7 @@ function executarCalculo() {
     resultadoHtml.innerHTML = htmlResultadoFinal + htmlInformativoProximoMes;
     divResultado.style.display = 'block';
     btnPdf.style.display = 'inline-block';
+	btnSalvarFirebase.style.display = 'inline-block';
 }
 
 
@@ -626,6 +633,7 @@ function gerarPDF() {
 // --- Event Listeners e Inicialização ---
 btnCalcular.addEventListener('click', executarCalculo);
 btnPdf.addEventListener('click', gerarPDF);
+btnSalvarFirebase.addEventListener('click', salvarNoFirebase);
 
 fldDataInicioFerias.addEventListener('change', calcularDataFimFerias);
 fldDiasFeriasGozo.addEventListener('change', calcularDataFimFerias);
@@ -732,4 +740,44 @@ if (!fldReferencia.value) { // Preenche a referência apenas se estiver vazia
     fldReferencia.value = `${anoAtual}-${mesAtual}`;
 }
 
-// --- FIM DO ARQUIVO script.js ---
+// NOVA FUNÇÃO PARA SALVAR NO FIREBASE
+async function salvarNoFirebase() {
+    // Verifica se existe um cálculo pronto para ser salvo
+    if (!calculoAtual || !calculoAtual.nome) {
+        alert("Não há dados de cálculo para salvar. Por favor, calcule primeiro.");
+        return;
+    }
+
+    // Desabilita o botão para evitar cliques duplos
+    btnSalvarFirebase.disabled = true;
+    btnSalvarFirebase.textContent = 'Salvando...';
+
+    // Pega as funções do Firestore que foram colocadas na janela (window)
+    const { collection, addDoc, serverTimestamp } = window.firestoreFunctions;
+
+    try {
+        // Estrutura os dados que serão salvos no banco
+        const dadosParaSalvar = {
+            nome: calculoAtual.nome,
+            referenciaPagamento: calculoAtual.referenciaPagamento,
+            salarioBaseInput: calculoAtual.salarioBaseInput,
+            tipoCalculo: calculoAtual.tipoCalculo,
+            calculoCompleto: calculoAtual, // Salva o objeto inteiro do cálculo
+            dataSalvo: serverTimestamp() // Adiciona um carimbo de data/hora do servidor
+        };
+
+        // Adiciona um novo documento na coleção "calculos"
+        const docRef = await addDoc(collection(window.db, "calculos"), dadosParaSalvar);
+
+        console.log("Documento salvo com ID: ", docRef.id);
+        alert("Dados do cálculo salvos com sucesso no Firebase!");
+
+    } catch (error) {
+        console.error("Erro ao salvar dados no Firebase: ", error);
+        alert("Ocorreu um erro ao salvar os dados. Verifique o console para mais detalhes.");
+    } finally {
+        // Reabilita o botão, independentemente de sucesso ou falha
+        btnSalvarFirebase.disabled = false;
+        btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
+    }
+}
