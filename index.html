@@ -77,7 +77,8 @@
                               <option value="15">15 dias</option>
                           </select>
                       </div>
-					  <div class="form-group" id="groupDataInicioFerias" style="display:none; margin-left: 28px; margin-top: 10px;">
+                      <!-- NOVO CAMPO DE DATA ADICIONADO -->
+                      <div class="form-group" id="groupDataInicioFerias" style="display:none; margin-left: 28px; margin-top: 10px;">
                           <label for="dataInicioFerias">Data de Início das Férias:</label>
                           <input type="date" id="dataInicioFerias" name="dataInicioFerias">
                           <div style="margin-top: 8px;">
@@ -148,8 +149,10 @@
             </div>
        </div> <!-- /form-grid -->
 
-        <button type="button" id="btnCalcular">Calcular</button>
+        <!-- DIV PARA EXIBIR MENSAGEM DE BLOQUEIO -->
+        <div id="infoBloqueio" class="info-bloqueio" style="display: none; background-color: #fffbe6; border: 1px solid #ffe58f; color: #a67c00; padding: 15px; border-radius: 4px; margin-bottom: 15px; text-align: center;"></div>
 
+        <button type="button" id="btnCalcular">Calcular</button>
       </form>
      </div> <!-- /form-container -->
 
@@ -162,14 +165,13 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="script.js"></script>
-  
 
   <script type="module">
   // Importa as funções que você precisa dos SDKs
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-  // ADICIONADO: Importa as funções do Firestore
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  // ATUALIZADO: Importa mais funções do Firestore para consulta
+  import { getFirestore, collection, addDoc, serverTimestamp, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
   // Configuração do seu web app do Firebase
   const firebaseConfig = {
@@ -186,10 +188,11 @@
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
 
-  // ADICIONADO: Inicializa o Firestore e o torna acessível globalmente
+  // Inicializa o Firestore e o torna acessível globalmente
   const db = getFirestore(app);
   window.db = db; // Permite que o script.js acesse o banco de dados
-  window.firestoreFunctions = { collection, addDoc, serverTimestamp }; // Torna as funções acessíveis
+  // ATUALIZADO: Torna as novas funções acessíveis
+  window.firestoreFunctions = { collection, addDoc, serverTimestamp, getDocs, query, where };
 </script>
 
 </body>
