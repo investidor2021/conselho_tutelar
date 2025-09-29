@@ -150,18 +150,27 @@
          <div id="resultado"></div>
           <button type="button" id="btnPdf">Gerar PDF</button>
     </div>
+	
+	<div id="divResultado" class="results-container" style="display: none;">
+     <h2>Resumo do Cálculo</h2>
+     <div id="resultado"></div>
+      <button type="button" id="btnPdf">Gerar PDF</button>
+      // ADICIONE A LINHA ABAIXO
+      <button type="button" id="btnSalvarFirebase" style="display: none;">Salvar no Banco de Dados</button>
+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="script.js"></script>
-    <script type="module">
-  // Import the functions you need from the SDKs you need
+  
+
+  <script type="module">
+  // Importa as funções que você precisa dos SDKs
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+  // ADICIONADO: Importa as funções do Firestore
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  // Configuração do seu web app do Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyBfzOkxS60B8Op-mPJF60RaaYiO7I9R--M",
     authDomain: "conselhotutelar-e74c5.firebaseapp.com",
@@ -172,9 +181,14 @@
     measurementId: "G-CQELXX0YRH"
   };
 
-  // Initialize Firebase
+  // Inicializa o Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+
+  // ADICIONADO: Inicializa o Firestore e o torna acessível globalmente
+  const db = getFirestore(app);
+  window.db = db; // Permite que o script.js acesse o banco de dados
+  window.firestoreFunctions = { collection, addDoc, serverTimestamp }; // Torna as funções acessíveis
 </script>
 
 </body>
