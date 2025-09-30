@@ -626,49 +626,65 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
   });
 
   async function salvarNoFirebase() {
-      if (!calculoAtual || !calculoAtual.nome) {
-          alert("Não há dados de cálculo para salvar.");
-          return;
-      }
+    if (!calculoAtual || !calculoAtual.nome) {
+        alert("Não há dados de cálculo para salvar.");
+        return;
+    }
 
-      btnSalvarFirebase.disabled = true;
-      btnSalvarFirebase.textContent = 'Salvando...';
+    btnSalvarFirebase.disabled = true;
+    btnSalvarFirebase.textContent = 'Salvando...';
 
-      const { collection, addDoc, serverTimestamp } = window.firestoreFunctions;
+    const { collection, addDoc, getDocs, query, where, serverTimestamp } = window.firestoreFunctions;
+    const db = window.db;
 
-      try {
-          const dadosParaSalvar = {
-              nome: calculoAtual.nome,
-              referenciaPagamento: calculoAtual.referenciaPagamento,
-              tipoCalculo: calculoAtual.tipoCalculo,
-              calculoCompleto: calculoAtual,
-              dataSalvo: serverTimestamp(),
-              referenciasSaldos: []
-          };
+    try {
+        // --- Checagem antes de salvar para evitar duplicidade ---
+        const q = query(collection(db, "calculos"),
+            where("nome", "==", calculoAtual.nome),
+            where("referenciasSaldos", "array-contains", calculoAtual.referenciaPagamento)
+        );
+        const querySnapshot = await getDocs(q);
 
-          if (calculoAtual.tipoCalculo === "FERIAS") {
-			  dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
-			  
-              if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
-                  dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
-              }
-              if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
-                  dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
-              }
-          }
+        if (!querySnapshot.empty) {
+            alert(`Já existe um cálculo salvo para ${calculoAtual.nome} na referência ${calculoAtual.referenciaPagamento}. Não será duplicado.`);
+            return; // sai sem salvar
+        }
 
-          const docRef = await addDoc(collection(window.db, "calculos"), dadosParaSalvar);
-          console.log("Documento salvo com ID: ", docRef.id);
-          alert("Dados do cálculo salvos com sucesso!");
+        // --- Se não existir, salva normalmente ---
+        const dadosParaSalvar = {
+            nome: calculoAtual.nome,
+            referenciaPagamento: calculoAtual.referenciaPagamento,
+            tipoCalculo: calculoAtual.tipoCalculo,
+            calculoCompleto: calculoAtual,
+            dataSalvo: serverTimestamp(),
+            referenciasSaldos: []
+        };
 
-      } catch (error) {
-          console.error("Erro ao salvar dados no Firebase: ", error);
-          alert("Ocorreu um erro ao salvar os dados.");
-      } finally {
-          btnSalvarFirebase.disabled = false;
-          btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
-      }
-  }
+        if (calculoAtual.tipoCalculo === "FERIAS") {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+            if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
+            }
+            if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
+            }
+        } else {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+        }
+
+        const docRef = await addDoc(collection(db, "calculos"), dadosParaSalvar);
+        console.log("Documento salvo com ID: ", docRef.id);
+        alert("Dados do cálculo salvos com sucesso!");
+
+    } catch (error) {
+        console.error("Erro ao salvar dados no Firebase: ", error);
+        alert("Ocorreu um erro ao salvar os dados.");
+    } finally {
+        btnSalvarFirebase.disabled = false;
+        btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
+    }
+}
+
 
   window.addEventListener('DOMContentLoaded', () => {
       if (fldTetoInss.value) {
