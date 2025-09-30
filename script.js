@@ -591,6 +591,8 @@ if (typeof window.calculadoraInicializada === 'undefined') {
           };
 
           if (calculoAtual.tipoCalculo === "FERIAS") {
+			  dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+			  
               if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
                   dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
               }
