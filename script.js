@@ -7,6 +7,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   const SALARIO_MINIMO_NACIONAL = 1412.00;
   const ALIQUOTA_INSS_INDIVIDUAL = 0.11;
 
+<<<<<<< HEAD
   const FAIXAS_IRRF = [
     { baseAte: 2259.20, aliquota: 0.0,   deducao: 0.0 },
     { baseAte: 2826.65, aliquota: 0.075, deducao: 169.44 },
@@ -23,6 +24,15 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   const divResultado = document.getElementById('divResultado');
   const resultadoHtml = document.getElementById('resultado');
   const infoBloqueioDiv = document.getElementById('infoBloqueio');
+=======
+const FAIXAS_IRRF = [
+ { baseAte: 2259.20, aliquota: 0.0,   deducao: 0.0 },
+ { baseAte: 2826.65, aliquota: 0.075, deducao: 169.44 },
+ { baseAte: 3751.05, aliquota: 0.15,  deducao: 381.44 },
+ { baseAte: 4664.68, aliquota: 0.225, deducao: 662.77 },
+ { baseAte: Infinity,aliquota: 0.275, deducao: 896.00 }
+];
+>>>>>>> parent of 9387007 (Codigo para salvar no firebase)
 
 
   const fldNome = document.getElementById('conselheiroNome');
@@ -558,11 +568,18 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
           // O código completo da função gerarPDF foi omitido aqui para brevidade,
           // mas ele deve ser o mesmo do arquivo original que você tinha.
 
+<<<<<<< HEAD
       } catch (error) {
           console.error("Erro ao gerar PDF:", error);
           alert("Ocorreu um erro ao gerar o PDF: " + error.message);
       }
   }
+=======
+    resultadoHtml.innerHTML = htmlResultadoFinal + htmlInformativoProximoMes;
+    divResultado.style.display = 'block';
+    btnPdf.style.display = 'inline-block';
+}
+>>>>>>> parent of 9387007 (Codigo para salvar no firebase)
 
   // --- Event Listeners e Inicialização ---
   btnCalcular.addEventListener('click', executarCalculo);
@@ -589,6 +606,7 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
     }
   });
 
+<<<<<<< HEAD
   chkRescisao.addEventListener('change', function() {
       if (this.checked) {
           rescisaoCamposDiv.style.display = 'block';
@@ -607,6 +625,11 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
           if (groupFaltasContainer) groupFaltasContainer.style.display = 'block';
       }
   });
+=======
+// --- Event Listeners e Inicialização ---
+btnCalcular.addEventListener('click', executarCalculo);
+btnPdf.addEventListener('click', gerarPDF);
+>>>>>>> parent of 9387007 (Codigo para salvar no firebase)
 
   chkFeriasNormais.addEventListener('change', function() {
       if (this.checked) {
@@ -625,6 +648,7 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
       }
   });
 
+<<<<<<< HEAD
   async function salvarNoFirebase() {
     if (!calculoAtual || !calculoAtual.nome) {
         alert("Não há dados de cálculo para salvar.");
@@ -698,3 +722,108 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
   });
 }
 
+=======
+[fldSalarioBase, fldTetoInss, fldFeriasVencidasInput].forEach(field => {
+    field.addEventListener('focus', (e) => {
+        e.target.classList.remove('formatted');
+        let value = e.target.value.replace(/\./g, ''); // Remove todos os pontos (milhar)
+        // value = value.replace(',', '.'); // Substitui vírgula por ponto para o parseFloat, se necessário
+        e.target.value = value; // Deixa o valor "cru" para edição
+    });
+    field.addEventListener('blur', (e) => {
+        let rawValue = e.target.value.replace(/\./g, '').replace(',', '.');
+        let numValue = parseFloat(rawValue);
+        if (!isNaN(numValue)) {
+            e.target.value = formatToBRL(numValue);
+            e.target.classList.add('formatted');
+        } else {
+            e.target.value = ''; // Limpa se não for um número válido
+        }
+    });
+});
+
+chkRescisao.addEventListener('change', function() {
+    if (this.checked) {
+        rescisaoCamposDiv.style.display = 'block';
+        infoRescisaoDiv.style.display = 'block';
+        labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo rescisório R$):';
+        chkFeriasNormais.checked = false;
+        chkFeriasNormais.disabled = true;
+        if (groupFeriasNormaisContainer) groupFeriasNormaisContainer.style.opacity = '0.5';
+        if (groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
+        if (groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
+        if (groupFaltasContainer) groupFaltasContainer.style.display = 'none';
+        fldFaltas.value = 0;
+    } else {
+        rescisaoCamposDiv.style.display = 'none';
+        infoRescisaoDiv.style.display = 'none';
+        labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
+        chkFeriasNormais.disabled = false;
+        if (groupFeriasNormaisContainer) groupFeriasNormaisContainer.style.opacity = '1';
+        if (groupFaltasContainer) groupFaltasContainer.style.display = 'block';
+        chkAvisoPrevio.checked = false; // Desmarcar aviso prévio ao desmarcar rescisão
+    }
+});
+
+ chkFeriasNormais.addEventListener('change', function() {
+    if (this.checked) {
+        chkRescisao.checked = false;
+        chkRescisao.disabled = true;
+        if (groupRescisaoContainer) groupRescisaoContainer.style.opacity = '0.5';
+        rescisaoCamposDiv.style.display = 'none';
+        infoRescisaoDiv.style.display = 'none';
+        if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'block';
+        if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'block';
+        labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo das férias R$):';
+        if (groupFaltasContainer) {
+            groupFaltasContainer.style.display = 'block';
+            const labelFaltas = groupFaltasContainer.querySelector('label[for="faltas"]');
+            if (labelFaltas) labelFaltas.textContent = 'Dias de Falta (no mês ANTERIOR ao início das férias):';
+        }
+    } else {
+         chkRescisao.disabled = false;
+         if(groupRescisaoContainer) groupRescisaoContainer.style.opacity = '1';
+         if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
+         if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
+         fldDataInicioFerias.value = '';
+         fldDataFimFerias.textContent = '';
+         labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
+         if (groupFaltasContainer) {
+            const labelFaltas = groupFaltasContainer.querySelector('label[for="faltas"]');
+            if (labelFaltas) labelFaltas.textContent = 'Dias de Falta (no mês de referência, 0-30):';
+        }
+    }
+});
+
+// Inicialização de campos
+// Valores padrão para Teto INSS e Férias Vencidas já são aplicados via value no HTML ou setados na carga
+// Garantir que a formatação seja aplicada na carga se os campos tiverem valores iniciais
+if (fldTetoInss.value) {
+    let numValue = parseFloat(cleanNumberString(fldTetoInss.value));
+    if (!isNaN(numValue)) fldTetoInss.value = formatToBRL(numValue);
+    fldTetoInss.classList.add('formatted');
+} else { // Define um valor padrão se estiver vazio e formata
+    fldTetoInss.value = formatToBRL(8157.41); // Valor exemplo, ajuste se necessário
+    fldTetoInss.classList.add('formatted');
+}
+
+if (fldFeriasVencidasInput.value) {
+    let numValue = parseFloat(cleanNumberString(fldFeriasVencidasInput.value));
+    if (!isNaN(numValue)) fldFeriasVencidasInput.value = formatToBRL(numValue);
+    fldFeriasVencidasInput.classList.add('formatted');
+} else {
+    fldFeriasVencidasInput.value = formatToBRL(0);
+    fldFeriasVencidasInput.classList.add('formatted');
+}
+
+document.getElementById('conselheiroNome').placeholder = 'Digite ou selecione o nome';
+
+const hojeParaRef = new Date();
+const mesAtual = String(hojeParaRef.getMonth() + 1).padStart(2, '0');
+const anoAtual = hojeParaRef.getFullYear();
+if (!fldReferencia.value) { // Preenche a referência apenas se estiver vazia
+    fldReferencia.value = `${anoAtual}-${mesAtual}`;
+}
+
+// --- FIM DO ARQUIVO script.js ---
+>>>>>>> parent of 9387007 (Codigo para salvar no firebase)
