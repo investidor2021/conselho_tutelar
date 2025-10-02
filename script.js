@@ -509,119 +509,140 @@ if (typeof window.calculadoraInicializada === 'undefined') {
 
 
   function gerarPDF() {
-      try {
-          if (!calculoAtual || !calculoAtual.nome) {
-              alert("Primeiro realize um cálculo.");
-              return;
-          }
+    try {
+        if (!calculoAtual || !calculoAtual.nome) {
+            alert("Primeiro realize um cálculo.");
+            return;
+        }
 
-          if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-              alert("Erro: A biblioteca jsPDF não foi carregada corretamente.");
-              console.error("jsPDF não está definido.");
-              return;
-          }
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+            alert("Erro: A biblioteca jsPDF não foi carregada corretamente.");
+            console.error("jsPDF não está definido.");
+            return;
+        }
 
-          let linhaY = 15;
-          const margemEsquerda = 15;
-          const margemDireita = doc.internal.pageSize.getWidth() - 15;
-          const larguraPagina = doc.internal.pageSize.getWidth();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
-          const addLinha = (texto, valor) => {
-              doc.text(texto, margemEsquerda, linhaY);
-              if (valor !== undefined) {
-                  doc.text(valor, margemDireita, linhaY, { align: 'right' });
-              }
-              linhaY += 6;
-          };
+        // --- Configurações do Documento ---
+        let linhaY = 20;
+        const margemEsquerda = 15;
+        const margemDireita = doc.internal.pageSize.getWidth() - 15;
+        const azul = '#0056b3'; // Cor dos títulos de seção
 
-          doc.setFontSize(13); doc.setFont(undefined, 'bold');
-          const tituloPrincipal = calculoAtual.tipoCalculo === "RESCISAO" ? "Termo de Quitação de Rescisão" : "Recibo de Pagamento";
-          doc.text(tituloPrincipal, larguraPagina / 2, linhaY, { align: 'center' });
-          linhaY += 8;
+        // --- Funções Auxiliares de Layout ---
+        const addLinhaDupla = (textoEsquerda, textoDireita, isBold = false, tamanhoFonte = 10) => {
+            doc.setFontSize(tamanhoFonte);
+            doc.setFont(undefined, isBold ? 'bold' : 'normal');
+            doc.text(textoEsquerda, margemEsquerda, linhaY);
+            doc.text(textoDireita, margemDireita, linhaY, { align: 'right' });
+            linhaY += 7;
+        };
 
-          doc.setFontSize(9); doc.setFont(undefined, 'normal');
-          doc.text(`Nome: ${calculoAtual.nome}`, margemEsquerda, linhaY);
-          const refPrincipalFormatada = calculoAtual.referenciaPagamento.split('-').reverse().join('/');
-          doc.text(`Ref. Pag. Principal: ${refPrincipalFormatada}`, margemDireita, linhaY, { align: 'right' });
-          linhaY += 6;
+        const addTituloSecao = (titulo) => {
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(azul);
+            doc.text(titulo, margemEsquerda, linhaY);
+            linhaY += 8;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0); // Reseta a cor para preto
+        };
 
-          if (calculoAtual.isFeriasNormais && calculoAtual.dataInicioFerias) {
-              doc.text(`Período de Gozo: ${new Date(calculoAtual.dataInicioFerias + "T00:00:00").toLocaleDateString('pt-BR')} a ${calculoAtual.dataFimFerias}`, margemEsquerda, linhaY);
-              linhaY += 6;
-          }
-          doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
-          linhaY += 6;
+        // --- Título Principal ---
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(azul);
+        doc.text("Resumo do Cálculo", margemEsquerda, linhaY);
+        linhaY += 12;
 
-          doc.setFont(undefined, 'bold');
-          addLinha("Descrição dos Proventos", "Valor (R$)");
-          doc.setFont(undefined, 'normal');
+        // --- Informações do Cabeçalho ---
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
 
-          const pagAtual = calculoAtual.pagamentoAtual;
+        const refPrincipalFormatada = calculoAtual.referenciaPagamento.split('-').reverse().join('/');
+        let tipoCalculoStr = 'PAGAMENTO MENSAL (Contr. Individual)';
+        if (calculoAtual.tipoCalculo === 'RESCISAO') {
+            tipoCalculoStr = 'TERMO DE QUITAÇÃO DE RESCISÃO (Contr. Individual)';
+        } else if (calculoAtual.tipoCalculo === 'FERIAS') {
+            tipoCalculoStr = 'RECIBO DE FÉRIAS E SALÁRIOS';
+        }
+        
+        addLinhaDupla('Nome:', calculoAtual.nome);
+        addLinhaDupla('Referência do Pagamento Principal:', refPrincipalFormatada);
+        addLinhaDupla('TIPO:', tipoCalculoStr);
+        
+        if (calculoAtual.isFeriasNormais && calculoAtual.dataInicioFerias) {
+            const dataInicio = new Date(calculoAtual.dataInicioFerias + "T00:00:00").toLocaleDateString('pt-BR');
+            addLinhaDupla('Período de Gozo:', `${dataInicio} a ${calculoAtual.dataFimFerias}`);
+        }
+        linhaY += 3;
+        doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
+        linhaY += 8;
 
-          // Itera sobre os proventos do pagamento principal
-          for (const [key, value] of Object.entries(pagAtual.proventos)) {
-              if (value > 0) {
-                  let desc = key;
-                  if (key === 'salarioMensalBruto') desc = `Salário Base Mensal (${pagAtual.referencia})`;
-                  if (key === 'salarioMesAnterior') desc = `Salário Mês Anterior (${pagAtual.referencia})`;
-                  if (key === 'valorFerias') desc = `Férias (${calculoAtual.diasDeFeriasSelecionados} dias)`;
-                  if (key === 'adicionalUmTerco') desc = `Adicional 1/3 Férias`;
-                  if (key === 'saldoSalario') desc = `Saldo de Salário (${document.getElementById('saldoSalarioDias').value} dias)`;
-                  if (key === 'decimoTerceiroProp') desc = `13º Proporcional (${document.getElementById('meses13').value}/12)`;
-                  if (key === 'feriasProporcionaisBase') desc = `Férias Proporcionais (${document.getElementById('mesesFeriasProp').value}/12)`;
-                  if (key === 'umTercoFeriasProporcionais') desc = `1/3 sobre Férias Prop.`;
-                  if (key === 'avisoPrevio') desc = `Aviso Prévio Indenizado`;
-                  if (key === 'feriasVencidas') desc = `Férias Vencidas + 1/3`;
+        // --- Seção de Proventos ---
+        const pagAtual = calculoAtual.pagamentoAtual;
+        addTituloSecao('PROVENTOS (Pagamento Atual)');
 
-                  addLinha(desc, formatToBRL(value));
-              }
-          }
-          linhaY += 2;
-          doc.setFont(undefined, 'bold');
-          addLinha("TOTAL PROVENTOS BRUTOS", formatToBRL(pagAtual.totais.proventosBrutos));
-          linhaY += 4;
-          
-          doc.setFont(undefined, 'bold');
-          addLinha("Descrição dos Descontos", "Valor (R$)");
-          doc.setFont(undefined, 'normal');
+        if (pagAtual.proventos.salarioMensalBruto) addLinhaDupla(`Salário Base Mensal (${pagAtual.referencia}):`, formatCurrency(pagAtual.proventos.salarioMensalBruto));
+        if (pagAtual.proventos.salarioMesAnterior) addLinhaDupla(`Salário Mês Anterior (${pagAtual.referencia}):`, formatCurrency(pagAtual.proventos.salarioMesAnterior));
+        if (pagAtual.proventos.valorFerias) addLinhaDupla(`Férias (${calculoAtual.diasDeFeriasSelecionados} dias):`, formatCurrency(pagAtual.proventos.valorFerias));
+        if (pagAtual.proventos.adicionalUmTerco) addLinhaDupla('Adicional 1/3 sobre Férias:', formatCurrency(pagAtual.proventos.adicionalUmTerco));
+        if (pagAtual.proventos.saldoSalario) addLinhaDupla(`Saldo de Salário (${document.getElementById('saldoSalarioDias').value} dias):`, formatCurrency(pagAtual.proventos.saldoSalario));
+        if (pagAtual.proventos.avisoPrevio) addLinhaDupla('Aviso Prévio Indenizado:', formatCurrency(pagAtual.proventos.avisoPrevio));
+        if (pagAtual.proventos.decimoTerceiroProp) addLinhaDupla(`13º Salário Proporcional (${document.getElementById('meses13').value}/12):`, formatCurrency(pagAtual.proventos.decimoTerceiroProp));
+        if (pagAtual.proventos.feriasVencidas) addLinhaDupla('Férias Vencidas + 1/3:', formatCurrency(pagAtual.proventos.feriasVencidas));
+        if (pagAtual.proventos.feriasProporcionaisBase) addLinhaDupla(`Férias Proporcionais (${document.getElementById('mesesFeriasProp').value}/12):`, formatCurrency(pagAtual.proventos.feriasProporcionaisBase));
+        if (pagAtual.proventos.umTercoFeriasProporcionais) addLinhaDupla('1/3 sobre Férias Proporcionais:', formatCurrency(pagAtual.proventos.umTercoFeriasProporcionais));
+        
+        linhaY += 3;
+        addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
+        linhaY += 8;
 
-          // Itera sobre os descontos
-          for (const [key, value] of Object.entries(pagAtual.descontos)) {
-               if (value > 0) {
-                  let desc = key;
-                  if (key === 'faltas') desc = `Faltas (${calculoAtual.diasFaltaPagAtual}d)`;
-                  if (key === 'inss') desc = `INSS 11% (s/ ${formatToBRL(pagAtual.baseINSSAjustada)})`;
-                  if (key === 'irrf') desc = `IRRF (s/ ${formatToBRL(pagAtual.resultadoIRRF.baseCalculo)})`;
-                  addLinha(desc, formatToBRL(value));
-               }
-          }
-          linhaY += 2;
-          doc.setFont(undefined, 'bold');
-          addLinha("TOTAL DESCONTOS", formatToBRL(pagAtual.totais.descontos));
-          
-          linhaY += 6;
-          doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
-          linhaY += 6;
+        // --- Seção de Descontos ---
+        addTituloSecao('DESCONTOS (Pagamento Atual)');
+        
+        if (pagAtual.descontos.faltas > 0) addLinhaDupla(`Faltas (${calculoAtual.diasFaltaPagAtual} dia(s)):`, formatCurrency(pagAtual.descontos.faltas));
+        if (pagAtual.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagAtual.baseINSSAjustada)}):`, formatCurrency(pagAtual.descontos.inss));
+        if (pagAtual.descontos.irrf > 0) {
+            const irrfBase = pagAtual.resultadoIRRF;
+            addLinhaDupla(`IRRF (s/ ${formatCurrency(irrfBase.baseCalculo)}):`, formatCurrency(irrfBase.valor));
+            
+            // Adiciona a linha de detalhe do IRRF (alíquota e dedução)
+            doc.setFontSize(8);
+            doc.setTextColor(100); // cinza
+            const aliquotaStr = `Alíq: ${(irrfBase.aliquota * 100).toLocaleString('pt-BR')}%, Ded: ${formatCurrency(irrfBase.deducao)}`;
+            doc.text(aliquotaStr, margemDireita, linhaY - 3.5, { align: 'right' });
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+        }
 
-          doc.setFontSize(11);
-          doc.setFont(undefined, 'bold');
-          addLinha("LÍQUIDO A RECEBER", formatCurrency(pagAtual.totais.liquido));
-          linhaY += 20;
+        linhaY += 3;
+        addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagAtual.totais.descontos), true);
+        linhaY += 8;
 
-          doc.text("________________________________________", larguraPagina / 2, linhaY, { align: 'center' });
-          linhaY += 5;
-          doc.setFontSize(9); doc.setFont(undefined, 'normal');
-          doc.text(calculoAtual.nome, larguraPagina / 2, linhaY, { align: 'center' });
-          
-          doc.save(`recibo_${calculoAtual.nome.replace(/\s+/g, '_')}_${calculoAtual.referenciaPagamento}.pdf`);
+        // --- Seção do Valor Líquido ---
+        addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
+        
+        // --- Assinatura ---
+        linhaY += 25;
+        doc.text('________________________________________', margemDireita / 2 + margemEsquerda / 2, linhaY, { align: 'center' });
+        linhaY += 5;
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text(calculoAtual.nome, margemDireita / 2 + margemEsquerda / 2, linhaY, { align: 'center' });
 
-      } catch (error) {
-          console.error("Erro ao gerar PDF:", error);
-          alert("Ocorreu um erro ao gerar o PDF: " + error.message);
-      }
-  }
+
+        // --- Salvar o PDF ---
+        doc.save(`Recibo_${calculoAtual.nome.replace(/\s+/g, '_')}_${calculoAtual.referenciaPagamento}.pdf`);
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        alert("Ocorreu um erro ao gerar o PDF: " + error.message);
+    }
+}
 
   // --- Event Listeners e Inicialização ---
   btnCalcular.addEventListener('click', executarCalculo);
