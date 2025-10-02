@@ -437,8 +437,22 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               if (resIRRF.valor > 0) pag.descontos.irrf = resIRRF.valor;
               pag.resultadoIRRF = resIRRF;
               pag.totais.descontos = (pag.descontos.inss || 0) + (pag.descontos.irrf || 0);
-              pag.totais.liquido = pag.totais.proventosBrutos - pag.totais.descontos;
+              pag.totais.liquido = pag.totais.proventosBrutos - pag.totais.descontos;			 
           }
+		   ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
+          if (calculoAtual.pagamentoSaldoMesInicioFerias) {
+              const pag = calculoAtual.pagamentoSaldoMesInicioFerias;
+              htmlInformativoProximoMes += `<hr class="separador-demonstrativo">`;
+              htmlInformativoProximoMes += `<p class="titulo-demonstrativo">Demonstrativo do Saldo (Mês de Início das Férias)</p>`;
+              htmlInformativoProximoMes += `<div class="resumo-item"><span>Referência do Saldo:</span> <span>${pag.referencia}</span></div><br>`;
+              htmlInformativoProximoMes += `<div class="resumo-item"><span>Saldo de Salário (${pag.diasTrabalhados} dias):</span> <span>${formatCurrency(pag.proventos.saldoSalario)}</span></div>`;
+              htmlInformativoProximoMes += `<div class="resumo-item" style="font-weight:bold;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(pag.totais.proventosBrutos)}</span></div><br>`;
+              if (pag.descontos.inss > 0) htmlInformativoProximoMes += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(pag.baseINSSAjustada)}):</span> <span>${formatCurrency(pag.descontos.inss)}</span></div>`;
+              if (pag.descontos.irrf > 0) htmlInformativoProximoMes += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(pag.resultadoIRRF.baseCalculo)}):</span> <span>${formatCurrency(pag.descontos.irrf)}</span></div>`;
+              htmlInformativoProximoMes += `<div class="resumo-item" style="font-weight:bold;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(pag.totais.descontos)}</span></div><br>`;
+              htmlInformativoProximoMes += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER (Saldo):</span><span>${formatCurrency(pag.totais.liquido)}</span></div>`;
+          }
+// ------------ FIM DO CÓDIGO PARA ADICIONAR ------------
 
           const mesFimFerias = dataFimFeriasDate.getMonth() + 1;
           const anoFimFerias = dataFimFeriasDate.getFullYear();
@@ -467,6 +481,20 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               pag.totais.descontos = (pag.descontos.inss || 0) + (pag.descontos.irrf || 0);
               pag.totais.liquido = pag.totais.proventosBrutos - pag.totais.descontos;
           }
+		  // ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
+          if (calculoAtual.pagamentoSaldoMesTerminoFerias) {
+              const pag = calculoAtual.pagamentoSaldoMesTerminoFerias;
+              htmlInformativoProximoMes += `<hr class="separador-demonstrativo">`;
+              htmlInformativoProximoMes += `<p class="titulo-demonstrativo">Demonstrativo do Saldo (Mês de Término das Férias)</p>`;
+              htmlInformativoProximoMes += `<div class="resumo-item"><span>Referência do Saldo:</span> <span>${pag.referencia}</span></div><br>`;
+              htmlInformativoProximoMes += `<div class="resumo-item"><span>Saldo de Salário (${pag.diasTrabalhados} dias):</span> <span>${formatCurrency(pag.proventos.saldoSalario)}</span></div>`;
+              htmlInformativoProximoMes += `<div class="resumo-item" style="font-weight:bold;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(pag.totais.proventosBrutos)}</span></div><br>`;
+              if (pag.descontos.inss > 0) htmlInformativoProximoMes += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(pag.baseINSSAjustada)}):</span> <span>${formatCurrency(pag.descontos.inss)}</span></div>`;
+              if (pag.descontos.irrf > 0) htmlInformativoProximoMes += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(pag.resultadoIRRF.baseCalculo)}):</span> <span>${formatCurrency(pag.descontos.irrf)}</span></div>`;
+              htmlInformativoProximoMes += `<div class="resumo-item" style="font-weight:bold;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(pag.totais.descontos)}</span></div><br>`;
+              htmlInformativoProximoMes += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER (Saldo):</span><span>${formatCurrency(pag.totais.liquido)}</span></div>`;
+          }
+// ------------ FIM DO CÓDIGO PARA ADICIONAR ------------
     } else { 
           calculoAtual.tipoCalculo = "MENSAL";
           htmlResultadoFinal += '<div class="resumo-item"><span>TIPO:</span> <span><b>PAGAMENTO MENSAL (Contr. Individual)</b></span></div><hr>';
