@@ -439,7 +439,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               pag.totais.descontos = (pag.descontos.inss || 0) + (pag.descontos.irrf || 0);
               pag.totais.liquido = pag.totais.proventosBrutos - pag.totais.descontos;			 
           }
-		   ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
+// ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
           if (calculoAtual.pagamentoSaldoMesInicioFerias) {
               const pag = calculoAtual.pagamentoSaldoMesInicioFerias;
               htmlInformativoProximoMes += `<hr class="separador-demonstrativo">`;
@@ -481,7 +481,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               pag.totais.descontos = (pag.descontos.inss || 0) + (pag.descontos.irrf || 0);
               pag.totais.liquido = pag.totais.proventosBrutos - pag.totais.descontos;
           }
-		  // ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
+// ------------ INÍCIO DO CÓDIGO PARA ADICIONAR ------------
           if (calculoAtual.pagamentoSaldoMesTerminoFerias) {
               const pag = calculoAtual.pagamentoSaldoMesTerminoFerias;
               htmlInformativoProximoMes += `<hr class="separador-demonstrativo">`;
