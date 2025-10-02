@@ -7,7 +7,6 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   const SALARIO_MINIMO_NACIONAL = 1412.00;
   const ALIQUOTA_INSS_INDIVIDUAL = 0.11;
 
-<<<<<<< HEAD
   const FAIXAS_IRRF = [
     { baseAte: 2259.20, aliquota: 0.0,   deducao: 0.0 },
     { baseAte: 2826.65, aliquota: 0.075, deducao: 169.44 },
@@ -24,16 +23,6 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   const divResultado = document.getElementById('divResultado');
   const resultadoHtml = document.getElementById('resultado');
   const infoBloqueioDiv = document.getElementById('infoBloqueio');
-=======
-const FAIXAS_IRRF = [
- { baseAte: 2259.20, aliquota: 0.0,   deducao: 0.0 },
- { baseAte: 2826.65, aliquota: 0.075, deducao: 169.44 },
- { baseAte: 3751.05, aliquota: 0.15,  deducao: 381.44 },
- { baseAte: 4664.68, aliquota: 0.225, deducao: 662.77 },
- { baseAte: Infinity,aliquota: 0.275, deducao: 896.00 }
-];
->>>>>>> parent of 9387007 (Codigo para salvar no firebase)
-
 
   const fldNome = document.getElementById('conselheiroNome');
   const fldReferencia = document.getElementById('referencia');
@@ -233,104 +222,90 @@ const FAIXAS_IRRF = [
 
 
   // --- Lógica Principal de Cálculo ---
-async function executarCalculo() {
-const nome = fldNome.value;
-const referencia = fldReferencia.value;
-
-
-// --- Passo 1: checar no banco se já existe cálculo ---
-try {
-const { collection, query, where, getDocs } = window.firestoreFunctions;
-const db = window.db;
-
-
-const q = query(collection(db, "calculos"),
-where("nome", "==", nome),
-where("referenciasSaldos", "array-contains", referencia)
-);
-
-
-const querySnapshot = await getDocs(q);
-if (!querySnapshot.empty) {
-const doc = querySnapshot.docs[0];
-const calculoPai = doc.data().calculoCompleto;
-
-
-let pagamentoEncontrado = null;
-let tipoSaldo = '';
-
-
-if (calculoPai.pagamentoSaldoMesInicioFerias?.referenciaISO === referencia) {
-pagamentoEncontrado = calculoPai.pagamentoSaldoMesInicioFerias;
-tipoSaldo = "Saldo do Mês de Início das Férias";
-} else if (calculoPai.pagamentoSaldoMesTerminoFerias?.referenciaISO === referencia) {
-pagamentoEncontrado = calculoPai.pagamentoSaldoMesTerminoFerias;
-tipoSaldo = "Saldo do Mês de Término das Férias";
-} else if (calculoPai.referenciaPagamento === referencia) {
-pagamentoEncontrado = calculoPai.pagamentoAtual;
-tipoSaldo = "Pagamento Principal de Férias";
-}
-
-
-if (pagamentoEncontrado) {
-alert(`Atenção: ${nome} já tem cálculo neste período (${tipoSaldo}).`);
-bloquearFormularioEExibirDados(pagamentoEncontrado, calculoPai, tipoSaldo);
-return; // cancela o cálculo
-}
-}
-} catch (err) {
-console.error("Erro ao verificar cálculo existente:", err);
-}
-
-
-// --- Passo 2: segue com o cálculo normal ---
-const referenciaPagamento = fldReferencia.value;
-const diasFaltaInput = parseInt(fldFaltas.value) || 0;
-
-
-if (diasFaltaInput < 0 || diasFaltaInput > 30) {
-alert("O número de dias de falta deve estar entre 0 e 30.");
-fldFaltas.focus();
-return;
-}
-
-
-const salarioBaseStr = cleanNumberString(fldSalarioBase.value);
-const tetoInssStr = cleanNumberString(fldTetoInss.value);
-const feriasVencidasStr = cleanNumberString(fldFeriasVencidasInput.value);
-
-
-const salarioBaseInput = parseFloat(salarioBaseStr) || 0;
-const tetoInssInformado = parseFloat(tetoInssStr) || 8157.41;
-const valorFeriasVencidasInput = parseFloat(feriasVencidasStr) || 0;
-
-
-const isRescisaoChecked = chkRescisao.checked;
-const isFeriasNormaisChecked = chkFeriasNormais.checked;
-
-
-if (!nome || !referenciaPagamento || salarioBaseInput <= 0 || tetoInssInformado <= 0) {
-alert("Por favor, preencha Nome, Referência do Pagamento, Salário Base (maior que zero) e Teto INSS (maior que zero).");
-return;
-}
-
-
-calculoAtual = {
-nome, referenciaPagamento, salarioBaseInput, tetoInssInformado,
-isRescisao: isRescisaoChecked, isFeriasNormais: isFeriasNormaisChecked,
-pagamentoAtual: { proventos: {}, descontos: {}, totais: {}, baseINSSAjustada: 0, resultadoIRRF: {} },
-pagamentoSaldoMesInicioFerias: null,
-pagamentoSaldoMesTerminoFerias: null
-};
-calculoAtual.diasFaltaPagAtual = diasFaltaInput;
-
-
-let htmlResultadoFinal = '';
-let htmlInformativoProximoMes = '';
-const [anoRefPag, mesRefPag] = referenciaPagamento.split('-').map(Number);
-const mesAnoReferenciaPagamentoFormatado = `${String(mesRefPag).padStart(2, '0')}/${anoRefPag}`;
-htmlResultadoFinal += `<div class="resumo-item"><span>Nome:</span> <span>${nome}</span></div>`;
-htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento Principal:</span> <span>${mesAnoReferenciaPagamentoFormatado}</span></div>`;
+  async function executarCalculo() {
+    const nome = fldNome.value;
+    const referencia = fldReferencia.value;
+    
+    // --- Passo 1: checar no banco se já existe cálculo ---
+    try {
+        const { collection, query, where, getDocs } = window.firestoreFunctions;
+        const db = window.db;
+        
+        const q = query(collection(db, "calculos"),
+            where("nome", "==", nome),
+            where("referenciasSaldos", "array-contains", referencia)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            const calculoPai = doc.data().calculoCompleto;
+            
+            let pagamentoEncontrado = null;
+            let tipoSaldo = '';
+            
+            if (calculoPai.pagamentoSaldoMesInicioFerias?.referenciaISO === referencia) {
+                pagamentoEncontrado = calculoPai.pagamentoSaldoMesInicioFerias;
+                tipoSaldo = "Saldo do Mês de Início das Férias";
+            } else if (calculoPai.pagamentoSaldoMesTerminoFerias?.referenciaISO === referencia) {
+                pagamentoEncontrado = calculoPai.pagamentoSaldoMesTerminoFerias;
+                tipoSaldo = "Saldo do Mês de Término das Férias";
+            } else if (calculoPai.referenciaPagamento === referencia) {
+                pagamentoEncontrado = calculoPai.pagamentoAtual;
+                tipoSaldo = "Pagamento Principal de Férias";
+            }
+            
+            if (pagamentoEncontrado) {
+                alert(`Atenção: ${nome} já tem cálculo neste período (${tipoSaldo}).`);
+                bloquearFormularioEExibirDados(pagamentoEncontrado, calculoPai, tipoSaldo);
+                return; // cancela o cálculo
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao verificar cálculo existente:", err);
+    }
+    
+    // --- Passo 2: segue com o cálculo normal ---
+    const referenciaPagamento = fldReferencia.value;
+    const diasFaltaInput = parseInt(fldFaltas.value) || 0;
+    
+    if (diasFaltaInput < 0 || diasFaltaInput > 30) {
+        alert("O número de dias de falta deve estar entre 0 e 30.");
+        fldFaltas.focus();
+        return;
+    }
+    
+    const salarioBaseStr = cleanNumberString(fldSalarioBase.value);
+    const tetoInssStr = cleanNumberString(fldTetoInss.value);
+    const feriasVencidasStr = cleanNumberString(fldFeriasVencidasInput.value);
+    
+    const salarioBaseInput = parseFloat(salarioBaseStr) || 0;
+    const tetoInssInformado = parseFloat(tetoInssStr) || 8157.41;
+    const valorFeriasVencidasInput = parseFloat(feriasVencidasStr) || 0;
+    
+    const isRescisaoChecked = chkRescisao.checked;
+    const isFeriasNormaisChecked = chkFeriasNormais.checked;
+    
+    if (!nome || !referenciaPagamento || salarioBaseInput <= 0 || tetoInssInformado <= 0) {
+        alert("Por favor, preencha Nome, Referência do Pagamento, Salário Base (maior que zero) e Teto INSS (maior que zero).");
+        return;
+    }
+    
+    calculoAtual = {
+        nome, referenciaPagamento, salarioBaseInput, tetoInssInformado,
+        isRescisao: isRescisaoChecked, isFeriasNormais: isFeriasNormaisChecked,
+        pagamentoAtual: { proventos: {}, descontos: {}, totais: {}, baseINSSAjustada: 0, resultadoIRRF: {} },
+        pagamentoSaldoMesInicioFerias: null,
+        pagamentoSaldoMesTerminoFerias: null
+    };
+    calculoAtual.diasFaltaPagAtual = diasFaltaInput;
+    
+    let htmlResultadoFinal = '';
+    let htmlInformativoProximoMes = '';
+    const [anoRefPag, mesRefPag] = referenciaPagamento.split('-').map(Number);
+    const mesAnoReferenciaPagamentoFormatado = `${String(mesRefPag).padStart(2, '0')}/${anoRefPag}`;
+    htmlResultadoFinal += `<div class="resumo-item"><span>Nome:</span> <span>${nome}</span></div>`;
+    htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento Principal:</span> <span>${mesAnoReferenciaPagamentoFormatado}</span></div>`;
 
     if (isRescisaoChecked) {
           calculoAtual.tipoCalculo = "RESCISAO";
@@ -535,7 +510,7 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
 
   function gerarPDF() {
       try {
-          if (!calculoAtual.nome) {
+          if (!calculoAtual || !calculoAtual.nome) {
               alert("Primeiro realize um cálculo.");
               return;
           }
@@ -553,6 +528,14 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
           const margemDireita = doc.internal.pageSize.getWidth() - 15;
           const larguraPagina = doc.internal.pageSize.getWidth();
 
+          const addLinha = (texto, valor) => {
+              doc.text(texto, margemEsquerda, linhaY);
+              if (valor !== undefined) {
+                  doc.text(valor, margemDireita, linhaY, { align: 'right' });
+              }
+              linhaY += 6;
+          };
+
           doc.setFontSize(13); doc.setFont(undefined, 'bold');
           const tituloPrincipal = calculoAtual.tipoCalculo === "RESCISAO" ? "Termo de Quitação de Rescisão" : "Recibo de Pagamento";
           doc.text(tituloPrincipal, larguraPagina / 2, linhaY, { align: 'center' });
@@ -562,24 +545,83 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
           doc.text(`Nome: ${calculoAtual.nome}`, margemEsquerda, linhaY);
           const refPrincipalFormatada = calculoAtual.referenciaPagamento.split('-').reverse().join('/');
           doc.text(`Ref. Pag. Principal: ${refPrincipalFormatada}`, margemDireita, linhaY, { align: 'right' });
+          linhaY += 6;
+
+          if (calculoAtual.isFeriasNormais && calculoAtual.dataInicioFerias) {
+              doc.text(`Período de Gozo: ${new Date(calculoAtual.dataInicioFerias + "T00:00:00").toLocaleDateString('pt-BR')} a ${calculoAtual.dataFimFerias}`, margemEsquerda, linhaY);
+              linhaY += 6;
+          }
+          doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
+          linhaY += 6;
+
+          doc.setFont(undefined, 'bold');
+          addLinha("Descrição dos Proventos", "Valor (R$)");
+          doc.setFont(undefined, 'normal');
+
+          const pagAtual = calculoAtual.pagamentoAtual;
+
+          // Itera sobre os proventos do pagamento principal
+          for (const [key, value] of Object.entries(pagAtual.proventos)) {
+              if (value > 0) {
+                  let desc = key;
+                  if (key === 'salarioMensalBruto') desc = `Salário Base Mensal (${pagAtual.referencia})`;
+                  if (key === 'salarioMesAnterior') desc = `Salário Mês Anterior (${pagAtual.referencia})`;
+                  if (key === 'valorFerias') desc = `Férias (${calculoAtual.diasDeFeriasSelecionados} dias)`;
+                  if (key === 'adicionalUmTerco') desc = `Adicional 1/3 Férias`;
+                  if (key === 'saldoSalario') desc = `Saldo de Salário (${document.getElementById('saldoSalarioDias').value} dias)`;
+                  if (key === 'decimoTerceiroProp') desc = `13º Proporcional (${document.getElementById('meses13').value}/12)`;
+                  if (key === 'feriasProporcionaisBase') desc = `Férias Proporcionais (${document.getElementById('mesesFeriasProp').value}/12)`;
+                  if (key === 'umTercoFeriasProporcionais') desc = `1/3 sobre Férias Prop.`;
+                  if (key === 'avisoPrevio') desc = `Aviso Prévio Indenizado`;
+                  if (key === 'feriasVencidas') desc = `Férias Vencidas + 1/3`;
+
+                  addLinha(desc, formatToBRL(value));
+              }
+          }
+          linhaY += 2;
+          doc.setFont(undefined, 'bold');
+          addLinha("TOTAL PROVENTOS BRUTOS", formatToBRL(pagAtual.totais.proventosBrutos));
+          linhaY += 4;
+          
+          doc.setFont(undefined, 'bold');
+          addLinha("Descrição dos Descontos", "Valor (R$)");
+          doc.setFont(undefined, 'normal');
+
+          // Itera sobre os descontos
+          for (const [key, value] of Object.entries(pagAtual.descontos)) {
+               if (value > 0) {
+                  let desc = key;
+                  if (key === 'faltas') desc = `Faltas (${calculoAtual.diasFaltaPagAtual}d)`;
+                  if (key === 'inss') desc = `INSS 11% (s/ ${formatToBRL(pagAtual.baseINSSAjustada)})`;
+                  if (key === 'irrf') desc = `IRRF (s/ ${formatToBRL(pagAtual.resultadoIRRF.baseCalculo)})`;
+                  addLinha(desc, formatToBRL(value));
+               }
+          }
+          linhaY += 2;
+          doc.setFont(undefined, 'bold');
+          addLinha("TOTAL DESCONTOS", formatToBRL(pagAtual.totais.descontos));
+          
+          linhaY += 6;
+          doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
+          linhaY += 6;
+
+          doc.setFontSize(11);
+          doc.setFont(undefined, 'bold');
+          addLinha("LÍQUIDO A RECEBER", formatCurrency(pagAtual.totais.liquido));
+          linhaY += 20;
+
+          doc.text("________________________________________", larguraPagina / 2, linhaY, { align: 'center' });
           linhaY += 5;
+          doc.setFontSize(9); doc.setFont(undefined, 'normal');
+          doc.text(calculoAtual.nome, larguraPagina / 2, linhaY, { align: 'center' });
+          
+          doc.save(`recibo_${calculoAtual.nome.replace(/\s+/g, '_')}_${calculoAtual.referenciaPagamento}.pdf`);
 
-          // ... (O restante da função gerarPDF precisa ser restaurada do código original)
-          // O código completo da função gerarPDF foi omitido aqui para brevidade,
-          // mas ele deve ser o mesmo do arquivo original que você tinha.
-
-<<<<<<< HEAD
       } catch (error) {
           console.error("Erro ao gerar PDF:", error);
           alert("Ocorreu um erro ao gerar o PDF: " + error.message);
       }
   }
-=======
-    resultadoHtml.innerHTML = htmlResultadoFinal + htmlInformativoProximoMes;
-    divResultado.style.display = 'block';
-    btnPdf.style.display = 'inline-block';
-}
->>>>>>> parent of 9387007 (Codigo para salvar no firebase)
 
   // --- Event Listeners e Inicialização ---
   btnCalcular.addEventListener('click', executarCalculo);
@@ -606,7 +648,6 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
     }
   });
 
-<<<<<<< HEAD
   chkRescisao.addEventListener('change', function() {
       if (this.checked) {
           rescisaoCamposDiv.style.display = 'block';
@@ -625,11 +666,6 @@ htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento P
           if (groupFaltasContainer) groupFaltasContainer.style.display = 'block';
       }
   });
-=======
-// --- Event Listeners e Inicialização ---
-btnCalcular.addEventListener('click', executarCalculo);
-btnPdf.addEventListener('click', gerarPDF);
->>>>>>> parent of 9387007 (Codigo para salvar no firebase)
 
   chkFeriasNormais.addEventListener('change', function() {
       if (this.checked) {
@@ -648,7 +684,6 @@ btnPdf.addEventListener('click', gerarPDF);
       }
   });
 
-<<<<<<< HEAD
   async function salvarNoFirebase() {
     if (!calculoAtual || !calculoAtual.nome) {
         alert("Não há dados de cálculo para salvar.");
@@ -707,7 +742,7 @@ btnPdf.addEventListener('click', gerarPDF);
         btnSalvarFirebase.disabled = false;
         btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
     }
-}
+  }
 
 
   window.addEventListener('DOMContentLoaded', () => {
@@ -719,111 +754,13 @@ btnPdf.addEventListener('click', gerarPDF);
           let numValue = parseFloat(cleanNumberString(fldFeriasVencidasInput.value));
           if (!isNaN(numValue)) fldFeriasVencidasInput.value = formatToBRL(numValue);
       }
+      // Preenche a referência com o mês/ano atual se estiver vazia
+      const hojeParaRef = new Date();
+      const mesAtual = String(hojeParaRef.getMonth() + 1).padStart(2, '0');
+      const anoAtual = hojeParaRef.getFullYear();
+      if (!fldReferencia.value) {
+          fldReferencia.value = `${anoAtual}-${mesAtual}`;
+      }
   });
 }
-
-=======
-[fldSalarioBase, fldTetoInss, fldFeriasVencidasInput].forEach(field => {
-    field.addEventListener('focus', (e) => {
-        e.target.classList.remove('formatted');
-        let value = e.target.value.replace(/\./g, ''); // Remove todos os pontos (milhar)
-        // value = value.replace(',', '.'); // Substitui vírgula por ponto para o parseFloat, se necessário
-        e.target.value = value; // Deixa o valor "cru" para edição
-    });
-    field.addEventListener('blur', (e) => {
-        let rawValue = e.target.value.replace(/\./g, '').replace(',', '.');
-        let numValue = parseFloat(rawValue);
-        if (!isNaN(numValue)) {
-            e.target.value = formatToBRL(numValue);
-            e.target.classList.add('formatted');
-        } else {
-            e.target.value = ''; // Limpa se não for um número válido
-        }
-    });
-});
-
-chkRescisao.addEventListener('change', function() {
-    if (this.checked) {
-        rescisaoCamposDiv.style.display = 'block';
-        infoRescisaoDiv.style.display = 'block';
-        labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo rescisório R$):';
-        chkFeriasNormais.checked = false;
-        chkFeriasNormais.disabled = true;
-        if (groupFeriasNormaisContainer) groupFeriasNormaisContainer.style.opacity = '0.5';
-        if (groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
-        if (groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
-        if (groupFaltasContainer) groupFaltasContainer.style.display = 'none';
-        fldFaltas.value = 0;
-    } else {
-        rescisaoCamposDiv.style.display = 'none';
-        infoRescisaoDiv.style.display = 'none';
-        labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
-        chkFeriasNormais.disabled = false;
-        if (groupFeriasNormaisContainer) groupFeriasNormaisContainer.style.opacity = '1';
-        if (groupFaltasContainer) groupFaltasContainer.style.display = 'block';
-        chkAvisoPrevio.checked = false; // Desmarcar aviso prévio ao desmarcar rescisão
-    }
-});
-
- chkFeriasNormais.addEventListener('change', function() {
-    if (this.checked) {
-        chkRescisao.checked = false;
-        chkRescisao.disabled = true;
-        if (groupRescisaoContainer) groupRescisaoContainer.style.opacity = '0.5';
-        rescisaoCamposDiv.style.display = 'none';
-        infoRescisaoDiv.style.display = 'none';
-        if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'block';
-        if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'block';
-        labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo das férias R$):';
-        if (groupFaltasContainer) {
-            groupFaltasContainer.style.display = 'block';
-            const labelFaltas = groupFaltasContainer.querySelector('label[for="faltas"]');
-            if (labelFaltas) labelFaltas.textContent = 'Dias de Falta (no mês ANTERIOR ao início das férias):';
-        }
-    } else {
-         chkRescisao.disabled = false;
-         if(groupRescisaoContainer) groupRescisaoContainer.style.opacity = '1';
-         if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
-         if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
-         fldDataInicioFerias.value = '';
-         fldDataFimFerias.textContent = '';
-         labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
-         if (groupFaltasContainer) {
-            const labelFaltas = groupFaltasContainer.querySelector('label[for="faltas"]');
-            if (labelFaltas) labelFaltas.textContent = 'Dias de Falta (no mês de referência, 0-30):';
-        }
-    }
-});
-
-// Inicialização de campos
-// Valores padrão para Teto INSS e Férias Vencidas já são aplicados via value no HTML ou setados na carga
-// Garantir que a formatação seja aplicada na carga se os campos tiverem valores iniciais
-if (fldTetoInss.value) {
-    let numValue = parseFloat(cleanNumberString(fldTetoInss.value));
-    if (!isNaN(numValue)) fldTetoInss.value = formatToBRL(numValue);
-    fldTetoInss.classList.add('formatted');
-} else { // Define um valor padrão se estiver vazio e formata
-    fldTetoInss.value = formatToBRL(8157.41); // Valor exemplo, ajuste se necessário
-    fldTetoInss.classList.add('formatted');
-}
-
-if (fldFeriasVencidasInput.value) {
-    let numValue = parseFloat(cleanNumberString(fldFeriasVencidasInput.value));
-    if (!isNaN(numValue)) fldFeriasVencidasInput.value = formatToBRL(numValue);
-    fldFeriasVencidasInput.classList.add('formatted');
-} else {
-    fldFeriasVencidasInput.value = formatToBRL(0);
-    fldFeriasVencidasInput.classList.add('formatted');
-}
-
-document.getElementById('conselheiroNome').placeholder = 'Digite ou selecione o nome';
-
-const hojeParaRef = new Date();
-const mesAtual = String(hojeParaRef.getMonth() + 1).padStart(2, '0');
-const anoAtual = hojeParaRef.getFullYear();
-if (!fldReferencia.value) { // Preenche a referência apenas se estiver vazia
-    fldReferencia.value = `${anoAtual}-${mesAtual}`;
-}
-
 // --- FIM DO ARQUIVO script.js ---
->>>>>>> parent of 9387007 (Codigo para salvar no firebase)
