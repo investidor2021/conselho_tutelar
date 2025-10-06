@@ -49,6 +49,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   const fldMesesFeriasProp = document.getElementById('mesesFeriasProp');
 
   let calculoAtual = {};
+  let contextoAtual = { referencia: null }
 
   // --- Funções Utilitárias ---
   const formatToBRL = (value) => {
@@ -287,6 +288,33 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   }
 
   async function executarCalculo() {
+    // ... (início da função igual ao que já temos) ...
+    
+    // O bloco try/catch que verifica o Firebase continua o mesmo
+    try {
+        // ...
+    } catch (err) {
+        console.error("Erro ao verificar cálculo existente:", err);
+    }
+    
+    // --- Passo 2: segue com o cálculo normal ---
+    contextoAtual.referencia = null; // ADIÇÃO IMPORTANTE: Reseta o contexto para um novo cálculo
+
+    const referenciaPagamento = fldReferencia.value;
+    const diasFaltaInput = parseInt(fldFaltas.value) || 0;
+    
+    if (diasFaltaInput < 0 || diasFaltaInput > 30) {
+        alert("O número de dias de falta deve estar entre 0 e 30.");
+        fldFaltas.focus();
+        return;
+    }
+    
+    // O restante da função continua exatamente o mesmo que você já tem...
+    // ... (copie o resto da sua função executarCalculo aqui)
+    // ...
+    // ... (até o final da função)
+
+    // Apenas para garantir, aqui está a função completa para substituir
     const nome = fldNome.value;
     const referencia = fldReferencia.value;
     
@@ -318,6 +346,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             if (tipoDemonstrativo) {
                 alert(`Atenção: ${nome} já possui um cálculo de "${tipoDemonstrativo}" para este período.`);
                 calculoAtual = calculoPai;
+                contextoAtual.referencia = referencia; // Define o contexto para o mês específico
                 bloquearFormularioEExibirDados(calculoPai, referencia);
                 return;
             }
@@ -326,6 +355,8 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         console.error("Erro ao verificar cálculo existente:", err);
     }
     
+    contextoAtual.referencia = null;
+
     const referenciaPagamento = fldReferencia.value;
     const diasFaltaInput = parseInt(fldFaltas.value) || 0;
     
@@ -648,6 +679,426 @@ if (typeof window.calculadoraInicializada === 'undefined') {
       btnPdf.style.display = 'inline-block';
       btnSalvarFirebase.style.display = 'inline-block';
   }
+
+  function gerarPDF() {
+    try {
+        if (!calculoAtual || !calculoAtual.nome) {
+            alert("Primeiro realize um cálculo.");
+            return;
+        }
+
+        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+            alert("Erro: A biblioteca jsPDF não foi carregada corretamente.");
+            console.error("jsPDF não está definido.");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        
+        let linhaY = 20;
+        const margemEsquerda = 15;
+        const margemDireita = doc.internal.pageSize.getWidth() - 15;
+        const azul = '#0056b3';
+
+        const addLinhaDupla = (textoEsquerda, textoDireita, isBold = false, tamanhoFonte = 10) => {
+            if(linhaY > 270) { doc.addPage(); linhaY = 20; }
+            doc.setFontSize(tamanhoFonte);
+            doc.setFont(undefined, isBold ? 'bold' : 'normal');
+            doc.text(textoEsquerda, margemEsquerda, linhaY);
+            doc.text(textoDireita, margemDireita, linhaY, { align: 'right' });
+            linhaY += 7;
+        };
+
+        const addTituloSecao = (titulo) => {
+            if(linhaY > 270) { doc.addPage(); linhaY = 20; }
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(azul);
+            doc.text(titulo, margemEsquerda, linhaY);
+            linhaY += 8;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+        };
+        
+        const addLinhaSeparadora = () => {
+             linhaY += 3;
+             if(linhaY > 270) { doc.addPage(); linhaY = 20; }
+             doc.setLineWidth(0.2).line(margemEsquerda, linhaY, margemDireita, linhaY);
+             linhaY += 8;
+        }
+
+        const renderizarSaldoPDF = (pagamentoSaldo, titulo) => {
+            if (!pagamentoSaldo) return;
+            addLinhaSeparadora();
+            addTituloSecao(titulo);
+            addLinhaDupla(`Referência do Saldo:`, pagamentoSaldo.referencia);
+            addLinhaDupla(`Saldo de Salário (${pagamentoSaldo.diasTrabalhados} dias):`, formatCurrency(pagamentoSaldo.proventos.saldoSalario));
+            addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagamentoSaldo.totais.proventosBrutos), true);
+            linhaY += 3;
+            if (pagamentoSaldo.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagamentoSaldo.baseINSSAjustada)}):`, formatCurrency(pagamentoSaldo.descontos.inss));
+            if (pagamentoSaldo.descontos.irrf > 0) {
+                const irrf = pagamentoSaldo.resultadoIRRF;
+                const aliquotaStr = `(Alíq: ${(irrf.aliquota * 100).toLocaleString('pt-BR')}%, Ded: ${formatCurrency(irrf.deducao)})`;
+                const valorDireita = `${aliquotaStr} ${formatCurrency(irrf.valor)}`;
+                addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, valorDireita);
+            }
+            addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagamentoSaldo.totais.descontos), true);
+            linhaY += 3;
+            addLinhaDupla('LÍQUIDO A RECEBER (Saldo):', formatCurrency(pagamentoSaldo.totais.liquido), true);
+        };
+        
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(azul);
+        doc.text("Resumo do Cálculo", margemEsquerda, linhaY);
+        linhaY += 12;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        const referenciaFiltro = contextoAtual.referencia;
+
+        // Se houver um filtro de contexto, o título e o cabeçalho mudam
+        if (referenciaFiltro) {
+            addLinhaDupla('Nome:', calculoAtual.nome);
+            addLinhaDupla('Referência do Demonstrativo:', referenciaFiltro.split('-').reverse().join('/'));
+        } else {
+            const refPrincipalFormatada = calculoAtual.referenciaPagamento.split('-').reverse().join('/');
+            let tipoCalculoStr = 'PAGAMENTO MENSAL';
+            if (calculoAtual.tipoCalculo === 'RESCISAO') tipoCalculoStr = 'RESCISÃO';
+            else if (calculoAtual.tipoCalculo === 'FERIAS') tipoCalculoStr = 'RECIBO DE FÉRIAS';
+            addLinhaDupla('Nome:', calculoAtual.nome);
+            addLinhaDupla('Referência Principal:', refPrincipalFormatada);
+            addLinhaDupla('TIPO:', tipoCalculoStr);
+        }
+        
+        if (calculoAtual.tipoCalculo === 'FERIAS' && calculoAtual.dataInicioFerias) {
+            const dataInicio = new Date(calculoAtual.dataInicioFerias + "T00:00:00").toLocaleDateString('pt-BR');
+            addLinhaDupla('Período de Gozo (Completo):', `${dataInicio} a ${calculoAtual.dataFimFerias}`);
+        }
+        addLinhaSeparadora();
+        
+        // --- Lógica de Impressão ---
+        const imprimirTudo = !referenciaFiltro;
+
+        // Imprimir Pagamento Principal (Férias, Mensal ou Rescisão)
+        if (imprimirTudo || calculoAtual.referenciaPagamento === referenciaFiltro) {
+            if (calculoAtual.tipoCalculo === 'FERIAS') {
+                const pagSalario = calculoAtual.pagamentoPrincipalSalario;
+                const pagFerias = calculoAtual.pagamentoPrincipalFerias;
+                const pagTotal = calculoAtual.pagamentoPrincipalTotal;
+
+                addTituloSecao(`Demonstrativo do Salário (Ref. ${pagSalario.referencia})`);
+                addLinhaDupla('Salário Base:', formatCurrency(pagSalario.proventos.salario));
+                if (calculoAtual.diasFaltaPagAtual > 0) addLinhaDupla(`Desconto Faltas (${calculoAtual.diasFaltaPagAtual}d):`, `(${formatCurrency(pagSalario.proventos.descFaltas)})`);
+                addLinhaDupla('PROVENTOS (Salário):', formatCurrency(pagSalario.totais.proventosBrutos), true);
+                linhaY += 3;
+                if (pagSalario.descontos.inss > 0) addLinhaDupla('INSS Proporcional:', formatCurrency(pagSalario.descontos.inss));
+                if (pagSalario.descontos.irrf > 0) {
+                    const irrf = pagSalario.resultadoIRRF;
+                    const aliquotaStr = `(Alíq: ${(irrf.aliquota * 100).toLocaleString('pt-BR')}%, Ded: ${formatCurrency(irrf.deducao)})`;
+                    const valorDireita = `${aliquotaStr} ${formatCurrency(irrf.valor)}`;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, valorDireita);
+                }
+                addLinhaDupla('DESCONTOS (Salário):', formatCurrency(pagSalario.totais.descontos), true);
+                linhaY += 3;
+                addLinhaDupla('LÍQUIDO (Salário):', formatCurrency(pagSalario.totais.liquido), true);
+                addLinhaSeparadora();
+                
+                addTituloSecao(`Demonstrativo das Férias (Ref. ${pagFerias.referencia})`);
+                addLinhaDupla(`Férias (${calculoAtual.diasDeFeriasSelecionados} dias):`, formatCurrency(pagFerias.proventos.ferias));
+                addLinhaDupla('Adicional 1/3 sobre Férias:', formatCurrency(pagFerias.proventos.umTerco));
+                addLinhaDupla('PROVENTOS (Férias):', formatCurrency(pagFerias.totais.proventosBrutos), true);
+                linhaY += 3;
+                if (pagFerias.descontos.inss > 0) addLinhaDupla('INSS Proporcional:', formatCurrency(pagFerias.descontos.inss));
+                if (pagFerias.descontos.irrf > 0) {
+                    const irrf = pagFerias.resultadoIRRF;
+                    const aliquotaStr = `(Alíq: ${(irrf.aliquota * 100).toLocaleString('pt-BR')}%, Ded: ${formatCurrency(irrf.deducao)})`;
+                    const valorDireita = `${aliquotaStr} ${formatCurrency(irrf.valor)}`;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, valorDireita);
+                }
+                addLinhaDupla('DESCONTOS (Férias):', formatCurrency(pagFerias.totais.descontos), true);
+                linhaY += 3;
+                addLinhaDupla('LÍQUIDO (Férias):', formatCurrency(pagFerias.totais.liquido), true);
+                addLinhaSeparadora();
+
+                addLinhaDupla('LÍQUIDO TOTAL A RECEBER:', formatCurrency(pagTotal.totais.liquido), true, 12);
+
+            } else {
+                const pagAtual = calculoAtual.pagamentoAtual;
+                addTituloSecao('Demonstrativo de Pagamento');
+                const inputs = calculoAtual.inputsRescisao || {};
+                const diasSaldo = inputs.diasSaldo || 0;
+                const meses13 = inputs.numMeses13 || 0;
+                if (pagAtual.proventos.salarioMensalBruto) addLinhaDupla(`Salário Base Mensal (${pagAtual.referencia}):`, formatCurrency(pagAtual.proventos.salarioMensalBruto));
+                if (pagAtual.proventos.saldoSalario) addLinhaDupla(`Saldo de Salário (${diasSaldo} dias):`, formatCurrency(pagAtual.proventos.saldoSalario));
+                addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
+                linhaY += 8;
+                addTituloSecao('DESCONTOS');
+                if (pagAtual.descontos.faltas > 0) addLinhaDupla(`Faltas (${calculoAtual.diasFaltaPagAtual} dia(s)):`, formatCurrency(pagAtual.descontos.faltas));
+                if (pagAtual.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagAtual.baseINSSAjustada)}):`, formatCurrency(pagAtual.descontos.inss));
+                if (pagAtual.descontos.irrf > 0) {
+                    const irrf = pagAtual.resultadoIRRF;
+                    const aliquotaStr = `(Alíq: ${(irrf.aliquota * 100).toLocaleString('pt-BR')}%, Ded: ${formatCurrency(irrf.deducao)})`;
+                    const valorDireita = `${aliquotaStr} ${formatCurrency(irrf.valor)}`;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, valorDireita);
+                }
+                addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagAtual.totais.descontos), true);
+                linhaY += 8;
+                addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
+            }
+        }
+        
+        // Imprimir Saldos
+        if (imprimirTudo || calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO === referenciaFiltro) {
+            renderizarSaldoPDF(calculoAtual.pagamentoSaldoMesInicioFerias, "Demonstrativo do Saldo (Mês de Início das Férias)");
+        }
+        if (imprimirTudo || calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO === referenciaFiltro) {
+            renderizarSaldoPDF(calculoAtual.pagamentoSaldoMesTerminoFerias, "Demonstrativo do Saldo (Mês de Término das Férias)");
+        }
+        
+        linhaY += 25;
+        if(linhaY > 270) { doc.addPage(); linhaY = 40; }
+        doc.text('________________________________________', margemDireita / 2 + margemEsquerda / 2, linhaY, { align: 'center' });
+        linhaY += 5;
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text(calculoAtual.nome, margemDireita / 2 + margemEsquerda / 2, linhaY, { align: 'center' });
+
+        doc.save(`Recibo_${calculoAtual.nome.replace(/\s+/g, '_')}_${(referenciaFiltro || calculoAtual.referenciaPagamento)}.pdf`);
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        alert("Ocorreu um erro ao gerar o PDF: " + error.message);
+    }
+}
+
+  // --- Event Listeners e Inicialização ---
+  btnCalcular.addEventListener('click', executarCalculo);
+  btnPdf.addEventListener('click', gerarPDF);
+  btnSalvarFirebase.addEventListener('click', salvarNoFirebase);
+
+  fldNome.addEventListener('change', verificarPagamentoExistente);
+  fldReferencia.addEventListener('change', verificarPagamentoExistente);
+
+  if (fldDataInicioFerias) fldDataInicioFerias.addEventListener('change', calcularDataFimFerias);
+  if (fldDiasFeriasGozo) fldDiasFeriasGozo.addEventListener('change', calcularDataFimFerias);
+
+  [fldSalarioBase, fldTetoInss, fldFeriasVencidasInput].forEach(field => {
+    if(field) {
+      field.addEventListener('blur', (e) => {
+          let rawValue = e.target.value.replace(/\./g, '').replace(',', '.');
+          let numValue = parseFloat(rawValue);
+          if (!isNaN(numValue)) {
+              e.target.value = formatToBRL(numValue);
+          } else {
+              e.target.value = '';
+          }
+      });
+    }
+  });
+
+  chkRescisao.addEventListener('change', function() {
+      if (this.checked) {
+          rescisaoCamposDiv.style.display = 'block';
+          infoRescisaoDiv.style.display = 'block';
+          labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo rescisório R$):';
+          chkFeriasNormais.checked = false;
+          chkFeriasNormais.disabled = true;
+          if (groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
+          if (groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
+          if (groupFaltasContainer) groupFaltasContainer.style.display = 'none';
+      } else {
+          rescisaoCamposDiv.style.display = 'none';
+          infoRescisaoDiv.style.display = 'none';
+          labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
+          chkFeriasNormais.disabled = false;
+          if (groupFaltasContainer) groupFaltasContainer.style.display = 'block';
+      }
+  });
+
+  chkFeriasNormais.addEventListener('change', function() {
+      if (this.checked) {
+          chkRescisao.checked = false;
+          chkRescisao.disabled = true;
+          rescisaoCamposDiv.style.display = 'none';
+          infoRescisaoDiv.style.display = 'none';
+          if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'block';
+          if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'block';
+          labelSalarioBase.textContent = 'Salário Base Mensal (para cálculo das férias R$):';
+      } else {
+          chkRescisao.disabled = false;
+          if(groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
+          if(groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
+          labelSalarioBase.textContent = 'Salário Base Mensal (R$):';
+      }
+  });
+async function salvarNoFirebase() {
+    if (!calculoAtual || !calculoAtual.nome) {
+        alert("Não há dados de cálculo para salvar.");
+        return;
+    }
+
+    btnSalvarFirebase.disabled = true;
+    btnSalvarFirebase.textContent = 'Salvando...';
+
+    const { collection, addDoc, getDocs, query, where, serverTimestamp } = window.firestoreFunctions;
+    const db = window.db;
+
+    try {
+        const q = query(collection(db, "calculos"),
+            where("nome", "==", calculoAtual.nome),
+            where("referenciasSaldos", "array-contains", calculoAtual.referenciaPagamento)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            alert(`Já existe um cálculo salvo para ${calculoAtual.nome} na referência ${calculoAtual.referenciaPagamento}. Não será duplicado.`);
+            return;
+        }
+
+        const dadosParaSalvar = {
+            nome: calculoAtual.nome,
+            referenciaPagamento: calculoAtual.referenciaPagamento,
+            tipoCalculo: calculoAtual.tipoCalculo,
+            calculoCompleto: calculoAtual,
+            dataSalvo: serverTimestamp(),
+            referenciasSaldos: []
+        };
+
+        if (calculoAtual.tipoCalculo === "FERIAS") {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+            if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
+            }
+            if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
+            }
+        } else {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+        }
+
+        const docRef = await addDoc(collection(db, "calculos"), dadosParaSalvar);
+        console.log("Documento salvo com ID: ", docRef.id);
+        alert("Dados do cálculo salvos com sucesso!");
+
+    } catch (error) {
+        console.error("Erro ao salvar dados no Firebase: ", error);
+        alert("Ocorreu um erro ao salvar os dados.");
+    } finally {
+        btnSalvarFirebase.disabled = false;
+        btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
+    }
+  }
+
+
+  window.addEventListener('DOMContentLoaded', () => {
+      if (fldTetoInss.value) {
+          let numValue = parseFloat(cleanNumberString(fldTetoInss.value));
+          if (!isNaN(numValue)) fldTetoInss.value = formatToBRL(numValue);
+      }
+      if (fldFeriasVencidasInput.value) {
+          let numValue = parseFloat(cleanNumberString(fldFeriasVencidasInput.value));
+          if (!isNaN(numValue)) fldFeriasVencidasInput.value = formatToBRL(numValue);
+      }
+      const hojeParaRef = new Date();
+      const mesAtual = String(hojeParaRef.getMonth() + 1).padStart(2, '0');
+      const anoAtual = hojeParaRef.getFullYear();
+      if (!fldReferencia.value) {
+          fldReferencia.value = `${anoAtual}-${mesAtual}`;
+      }
+  });
+
+  // --- LÓGICA DA NOVA ABA DE CONSULTA ---
+  const btnAbrirConsulta = document.getElementById('btnAbrirConsulta');
+  const consultaContainer = document.getElementById('consultaContainer');
+  const btnBuscarRegistros = document.getElementById('btnBuscarRegistros');
+  const consultaNomeInput = document.getElementById('consultaNome');
+  const listaResultadosBuscaDiv = document.getElementById('listaResultadosBusca');
+  const detalheRegistroSalvoDiv = document.getElementById('detalheRegistroSalvo');
+  const conteudoDetalheRegistroDiv = document.getElementById('conteudoDetalheRegistro');
+  const btnPdfRegistroSalvo = document.getElementById('btnPdfRegistroSalvo');
+
+  btnAbrirConsulta.addEventListener('click', () => {
+      const isHidden = consultaContainer.style.display === 'none';
+      consultaContainer.style.display = isHidden ? 'block' : 'none';
+      btnAbrirConsulta.textContent = isHidden ? 'Fechar Consulta' : 'Consultar Registros Salvos';
+  });
+
+  btnBuscarRegistros.addEventListener('click', async () => {
+      const nome = consultaNomeInput.value;
+      if (!nome) {
+          alert("Por favor, selecione um nome para a busca.");
+          return;
+      }
+      listaResultadosBuscaDiv.innerHTML = '<p>Buscando...</p>';
+      detalheRegistroSalvoDiv.style.display = 'none';
+
+      const { collection, query, where, getDocs, orderBy } = window.firestoreFunctions;
+      const db = window.db;
+      
+      const q = query(collection(db, "calculos"), where("nome", "==", nome), orderBy("referenciaPagamento", "desc"));
+      
+      try {
+          const querySnapshot = await getDocs(q);
+          if (querySnapshot.empty) {
+              listaResultadosBuscaDiv.innerHTML = `<p>Nenhum registro encontrado para ${nome}.</p>`;
+              return;
+          }
+          let resultadosHtml = '<ul>';
+          querySnapshot.forEach(doc => {
+              const data = doc.data();
+              const refFormatada = data.referenciaPagamento.split('-').reverse().join('/');
+              resultadosHtml += `<li>${data.tipoCalculo} - ${refFormatada} <button class="link-button" onclick="exibirRegistroDetalhado('${doc.id}')">Ver Detalhes</button></li>`;
+          });
+          resultadosHtml += '</ul>';
+          listaResultadosBuscaDiv.innerHTML = resultadosHtml;
+
+      } catch (error) {
+          console.error("Erro ao buscar registros: ", error);
+          listaResultadosBuscaDiv.innerHTML = '<p style="color:red;">Ocorreu um erro ao buscar os registros.</p>';
+      }
+  });
+
+  window.exibirRegistroDetalhado = async (docId) => {
+      if (!docId) return;
+      conteudoDetalheRegistroDiv.innerHTML = '<p>Carregando detalhes...</p>';
+      detalheRegistroSalvoDiv.style.display = 'block';
+
+      const { doc, getDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js");
+      const db = getFirestore();
+      
+      try {
+          const docRef = doc(db, "calculos", docId);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+              const calculoCompleto = docSnap.data().calculoCompleto;
+              calculoAtual = calculoCompleto;
+              
+              contextoAtual.referencia = calculoCompleto.referenciaPagamento;
+              bloquearFormularioEExibirDados(calculoCompleto, calculoCompleto.referenciaPagamento);
+              
+              conteudoDetalheRegistroDiv.innerHTML = resultadoHtml.innerHTML;
+              resultadoHtml.innerHTML = '';
+              divResultado.style.display = 'none';
+              infoBloqueioDiv.style.display = 'none';
+              
+          } else {
+              conteudoDetalheRegistroDiv.innerHTML = '<p style="color:red;">Registro não encontrado.</p>';
+          }
+      } catch (error) {
+          console.error("Erro ao carregar detalhe do registro: ", error);
+          conteudoDetalheRegistroDiv.innerHTML = '<p style="color:red;">Ocorreu um erro ao carregar os detalhes.</p>';
+      }
+  };
+  
+  btnPdfRegistroSalvo.addEventListener('click', gerarPDF);
+}
+// --- FIM DO ARQUIVO script.js ---
 
   function gerarPDF() {
     try {
