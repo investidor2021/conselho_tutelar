@@ -60,7 +60,7 @@
                     </div>
                     <div class="form-group">
                         <label for="tetoInssValor">Teto INSS Contribuição (R$):</label>
-                        <input type="text" id="tetoInssValor" value="8.751,41" name="tetoInssValor" placeholder="Ex: 8.751,41" required inputmode="decimal">
+                        <input type="text" id="tetoInssValor" value="8.157,41" name="tetoInssValor" placeholder="Ex: 8.157,41" required inputmode="decimal">
                         <small>Use vírgula para centavos.</small>
                     </div>
                 </div>
@@ -144,6 +144,39 @@
                     </div>
                 </div>
             </div>
+			<div class="checkbox-item-container">
+    <div class="form-group checkbox-item">
+        <input type="checkbox" id="isDecimoTerceiro" name="isDecimoTerceiro">
+        <label for="isDecimoTerceiro">É Pagamento de 13º Salário?</label>
+    </div>
+</div>
+
+<div id="decimoTerceiroCampos" style="display: none;" class="form-group full-width">
+    <h3>Detalhes do 13º Salário</h3>
+    <div class="form-grid">
+        <div class="form-group">
+            <label>Tipo de Parcela:</label>
+            <div class="radio-group">
+                <input type="radio" id="primeiraParcela" name="tipoParcela13" value="primeira" checked>
+                <label for="primeiraParcela">1ª Parcela (Adiantamento)</label>
+            </div>
+            <div class="radio-group">
+                <input type="radio" id="segundaParcela" name="tipoParcela13" value="segunda">
+                <label for="segundaParcela">2ª Parcela (Pagamento Final)</label>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="meses13Avos">Proporcional a:</label>
+            <select id="meses13Avos" name="meses13Avos">
+                <script>for (let i = 1; i <= 12; i++) { document.write(`<option value="${i}">${i}/12 avos</option>`); }</script>
+            </select>
+        </div>
+        <div class="form-group" id="groupAdiantamentoPago" style="display:none;">
+            <label for="valorAdiantamentoPago">Valor do Adiantamento (1ª Parcela) já pago (R$):</label>
+            <input type="text" id="valorAdiantamentoPago" name="valorAdiantamentoPago" placeholder="Ex: 1500,00" value="0" inputmode="decimal">
+        </div>
+    </div>
+</div>
        </div>
 
         <div id="infoBloqueio" class="info-bloqueio" style="display: none;"></div>
