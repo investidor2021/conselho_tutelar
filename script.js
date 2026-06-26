@@ -273,6 +273,15 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               htmlSalvo += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS (Férias):</span> <span>${formatCurrency(pagFerias.totais.descontos)}</span></div><br>`;
               htmlSalvo += `<div class="resumo-item total" style="background-color: #e9ecef;"><span>LÍQUIDO (Férias):</span><span>${formatCurrency(pagFerias.totais.liquido)}</span></div>`;
 
+              if (calculoCompleto.pagamento13Adiantamento) {
+                  const pag13 = calculoCompleto.pagamento13Adiantamento;
+                  htmlSalvo += `<hr class="separador-demonstrativo"><p class="titulo-demonstrativo">13º Salário - 1ª Parcela Automática</p>`;
+                  htmlSalvo += `<div class="resumo-item"><span>Referência do 13º:</span> <span>${pag13.referencia}</span></div>`;
+                  htmlSalvo += `<div class="resumo-item"><span>Meses considerados:</span> <span>${pag13.mesesAvos}/12</span></div>`;
+                  htmlSalvo += `<div class="resumo-item"><span>Valor Total 13º:</span> <span>${formatCurrency(pag13.valorTotal13)}</span></div>`;
+                  htmlSalvo += `<div class="resumo-item"><span>Adiantamento 50%:</span> <span>${formatCurrency(pag13.adiantamento13)}</span></div>`;
+              }
+
               htmlSalvo += `<hr class="separador-demonstrativo" style="border-top: 2px solid #28a745;">`;
               htmlSalvo += `<div class="resumo-item total" style="font-size: 1.2em;"><span>LÍQUIDO TOTAL A RECEBER:</span><span>${formatCurrency(pagTotal.totais.liquido)}</span></div>`;
 
@@ -779,6 +788,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         }
 
         let pagamento13Automatica = null;
+        let valorAdiantamento13 = 0;
         const isAuto13Ferias = (mesRefPag === 7 && mesInicioFerias === 7) || (mesRefPag === 6 && mesInicioFerias === 6);
         let mesReferencia13 = mesRefPag;
         let anoReferencia13 = anoRefPag;
@@ -801,12 +811,18 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         }
 
         if (pagamento13Automatica) {
+            valorAdiantamento13 = pagamento13Automatica.valorAdiantamento;
             calculoAtual.pagamento13Adiantamento = {
                 referencia: `${String(mesReferencia13).padStart(2, '0')}/${anoReferencia13}`,
                 mesesAvos: pagamento13Automatica.mesesAvos,
                 valorTotal13: pagamento13Automatica.valorTotal13,
                 adiantamento13: pagamento13Automatica.valorAdiantamento,
-                detalhes13: pagamento13Automatica.detalhes
+                detalhes13: pagamento13Automatica.detalhes,
+                totais: {
+                    proventosBrutos: pagamento13Automatica.valorAdiantamento,
+                    descontos: 0,
+                    liquido: pagamento13Automatica.valorAdiantamento
+                }
             };
 
             htmlResultadoFinal += `<hr class="separador-demonstrativo"><p class="titulo-demonstrativo">13º Salário - 1ª Parcela Automática</p>`;
@@ -1309,6 +1325,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
               }
               if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
                   dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
+              }
+              if (calculoAtual.pagamento13Adiantamento?.referencia) {
+                  const [mes13, ano13] = calculoAtual.pagamento13Adiantamento.referencia.split('/');
+                  dadosParaSalvar.referenciasSaldos.push(`${ano13}-${mes13}`);
               }
           } else {
               dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
