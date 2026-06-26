@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Histórico de Salários</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>📋 Histórico de Salários Globais</h2>
+    <p style="color:#666;">Cadastre o salário base e teto INSS por mês/ano. Esses valores serão usados automaticamente no cálculo do 13º salário.</p>
+
+    <div class="card">
+      <h3>Cadastrar / Atualizar Salário</h3>
+      <div class="form-group">
+        <label>Ano:</label>
+        <input type="number" id="salAno" min="2020" max="2099" style="width:100px;">
+      </div>
+      <div class="form-group">
+        <label>Mês:</label>
+        <select id="salMes">
+          <option value="">Selecione...</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salário Base (R$):</label>
+        <input type="text" id="salValor" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label>Teto INSS (R$):</label>
+        <input type="text" id="salTeto" placeholder="8.157,41">
+      </div>
+      <span id="msgStatusSalario" style="font-weight:bold;"></span>
+      <br><br>
+      <button id="btnSalvarSalario" class="btn-primary">Salvar Salário</button>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>📊 Histórico Cadastrado</h3>
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+        <label>Filtrar por Ano:</label>
+        <input type="number" id="salAnoFiltro" style="width:90px;">
+        <button id="btnCarregarHistorico" class="btn-secondary">Buscar</button>
+      </div>
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#0056b3; color:white;">
+            <th style="padding:8px;">Mês</th>
+            <th style="padding:8px;">Ano</th>
+            <th style="padding:8px;">Salário Base</th>
+            <th style="padding:8px;">Teto INSS</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaSalariosBody">
+          <tr><td colspan="4">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="salarios.js"></script>
+</body>
+</html>

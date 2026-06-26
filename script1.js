@@ -80,65 +80,6 @@ if (typeof window.calculadoraInicializada === 'undefined') {
       return Math.floor(num * multiplier) / multiplier;
   };
 
-  // ============================================================
-  // FUNÇÃO AUXILIAR: Busca salário do histórico para um mês/ano
-  // Se não encontrar, usa o salário atual como fallback
-  // ============================================================
-  async function buscarSalarioHistorico(mes, ano, salarioFallback, tetoFallback) {
-    try {
-      if (typeof window.buscarSalarioPorMesAno === 'function') {
-        const registro = await window.buscarSalarioPorMesAno(mes, ano);
-        if (registro) {
-          return {
-            salario: registro.salarioBase,
-            teto: registro.tetoInss,
-            origem: 'historico'
-          };
-        }
-      }
-    } catch (e) {
-      console.warn(`Histórico não disponível para ${mes}/${ano}, usando fallback.`, e);
-    }
-    return {
-      salario: salarioFallback,
-      teto: tetoFallback,
-      origem: 'fallback'
-    };
-  }
-
-  // ============================================================
-  // FUNÇÃO AUXILIAR: Calcula 13º com histórico de salários
-  // Busca o salário de cada mês de Janeiro até mesAtual
-  // e soma os avos proporcionais usando o salário correto de cada mês
-  // ============================================================
-  async function calcular13ComHistoricoLocal(anoRef, mesAtual, salarioFallback, tetoFallback) {
-    const MESES_LABEL = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-                         'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    let totalBase = 0;
-    const detalhes = [];
-
-    for (let m = 1; m <= mesAtual; m++) {
-      const registro = await buscarSalarioHistorico(m, anoRef, salarioFallback, tetoFallback);
-      const avo = registro.salario / 12;
-      totalBase += avo;
-      detalhes.push({
-        mes: m,
-        label: MESES_LABEL[m],
-        salario: registro.salario,
-        teto: registro.teto,
-        avo,
-        origem: registro.origem
-      });
-    }
-
-    return {
-      totalBase,
-      avos: mesAtual,
-      detalhes,
-      adiantamento50: totalBase / 2
-    };
-  }
-
   // --- Funções de Cálculo ---
   const calcularINSSContribuinteIndividual = (baseCalculoBruta, tetoInssConfigurado) => {
     if (baseCalculoBruta <= 0) return { valor: 0, baseAjustada: 0 };
@@ -444,108 +385,31 @@ if (typeof window.calculadoraInicializada === 'undefined') {
     htmlResultadoFinal += `<div class="resumo-item"><span>Nome:</span> <span>${nome}</span></div>`;
     htmlResultadoFinal += `<div class="resumo-item"><span>Referência do Pagamento:</span> <span>${mesAnoReferenciaPagamentoFormatado}</span></div>`;
 
-    // ============================================================
-    // BLOCO: 13º SALÁRIO
-    // ============================================================
     if (isDecimoTerceiroChecked) {
         calculoAtual.tipoCalculo = "DECIMO_TERCEIRO";
         const pagAtual = calculoAtual.pagamentoAtual;
         const isPrimeiraParcela = radioPrimeiraParcela.checked;
         const mesesAvos = parseInt(fldMeses13Avos.value);
+        const valorTotal13 = (salarioBaseInput / 12) * mesesAvos;
 
         pagAtual.parcelaInfo = { isPrimeira: isPrimeiraParcela, avos: mesesAvos };
 
         if (isPrimeiraParcela) {
-            // ========================================================
-            // 1ª PARCELA: Usa histórico de salários para calcular
-            // os avos corretos mês a mês
-            // ========================================================
             htmlResultadoFinal += '<div class="resumo-item"><span>TIPO:</span> <span><b>13º SALÁRIO - 1ª PARCELA (ADIANTAMENTO)</b></span></div><hr>';
-
-            // Mostra loading enquanto busca o histórico
-            btnCalcular.disabled = true;
-            btnCalcular.textContent = 'Calculando...';
-
-            let resultado13 = null;
-            try {
-              resultado13 = await calcular13ComHistoricoLocal(
-                anoRefPag,
-                mesesAvos,
-                salarioBaseInput,
-                tetoInssInformado
-              );
-            } catch(e) {
-              console.warn('Erro ao calcular 13º com histórico, usando salário fixo.', e);
-            }
-
-            btnCalcular.disabled = false;
-            btnCalcular.textContent = 'Calcular';
-
-            // Valores finais
-            const valorTotal13    = resultado13 ? resultado13.totalBase : (salarioBaseInput / 12) * mesesAvos;
             const valorAdiantamento = valorTotal13 / 2;
-            const detalhes13      = resultado13 ? resultado13.detalhes : [];
-            const usouHistorico   = resultado13 !== null;
-
-            // Salva no calculoAtual para o Firebase e PDF
             pagAtual.proventos.adiantamento13 = valorAdiantamento;
-            pagAtual.totais.proventosBrutos   = valorAdiantamento;
-            pagAtual.totais.descontos         = 0;
-            pagAtual.totais.liquido           = valorAdiantamento;
-            pagAtual.historico13              = detalhes13;
-            pagAtual.valorTotal13             = valorTotal13;
-
-            // Monta breakdown mês a mês (se veio do histórico)
-            let detalheHtml = '';
-            if (usouHistorico && detalhes13.length > 0) {
-              detalheHtml += `<div style="background:#f0f7ff; border-left:4px solid #17a2b8; padding:8px 12px; margin:8px 0; border-radius:4px;">`;
-              detalheHtml += `<small style="color:#555;"><b>📊 Breakdown por mês (via histórico):</b><br>`;
-              detalhes13.forEach(d => {
-                const origemIcon = d.origem === 'historico' ? '✅' : '⚠️';
-                detalheHtml += `${origemIcon} <b>${d.label}:</b> ${formatCurrency(d.salario)} → avo: ${formatCurrency(d.avo)}<br>`;
-              });
-              detalheHtml += `</small></div>`;
-            } else if (!usouHistorico) {
-              detalheHtml += `<div style="background:#fff3cd; border-left:4px solid #ffc107; padding:8px 12px; margin:8px 0; border-radius:4px;">
-                <small>⚠️ Histórico de salários não encontrado. Usando salário atual (${formatCurrency(salarioBaseInput)}) para todos os ${mesesAvos} avos.</small>
-              </div>`;
-            }
-
+            pagAtual.totais.proventosBrutos = valorAdiantamento;
+            pagAtual.totais.descontos = 0;
+            pagAtual.totais.liquido = valorAdiantamento;
+            
             htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base (Ref. 13º):</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
-            htmlResultadoFinal += detalheHtml;
-            htmlResultadoFinal += `<div class="resumo-item"><span>Valor Total 13º (${mesesAvos}/12 com histórico):</span> <span>${formatCurrency(valorTotal13)}</span></div><hr>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Valor Total 13º (${mesesAvos}/12):</span> <span>${formatCurrency(valorTotal13)}</span></div><hr>`;
             htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PAGAMENTO:</p>`;
             htmlResultadoFinal += `<div class="resumo-item"><span>Adiantamento 50%:</span> <span>${formatCurrency(valorAdiantamento)}</span></div>`;
             htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER:</span><span>${formatCurrency(pagAtual.totais.liquido)}</span></div>`;
-
-        } else {
-            // ========================================================
-            // 2ª PARCELA: Usa salário base atual (referência dezembro)
-            // O cálculo da 2ª parcela usa o salário de dezembro/atual
-            // ========================================================
+        } else { // Segunda Parcela
             htmlResultadoFinal += '<div class="resumo-item"><span>TIPO:</span> <span><b>13º SALÁRIO - 2ª PARCELA (PAGAMENTO FINAL)</b></span></div><hr>';
             const valorAdiantamentoPago = parseFloat(cleanNumberString(fldValorAdiantamentoPago.value)) || 0;
-
-            // Para 2ª parcela: recalcula total com histórico também
-            btnCalcular.disabled = true;
-            btnCalcular.textContent = 'Calculando...';
-
-            let resultado13_2a = null;
-            try {
-              resultado13_2a = await calcular13ComHistoricoLocal(
-                anoRefPag,
-                mesesAvos,
-                salarioBaseInput,
-                tetoInssInformado
-              );
-            } catch(e) {
-              console.warn('Erro ao calcular 2ª parcela com histórico.', e);
-            }
-
-            btnCalcular.disabled = false;
-            btnCalcular.textContent = 'Calcular';
-
-            const valorTotal13 = resultado13_2a ? resultado13_2a.totalBase : (salarioBaseInput / 12) * mesesAvos;
 
             const resultadoINSS = calcularINSSContribuinteIndividual(valorTotal13, tetoInssInformado);
             const baseIRRF = valorTotal13 - resultadoINSS.valor;
@@ -561,29 +425,14 @@ if (typeof window.calculadoraInicializada === 'undefined') {
 
             pagAtual.baseINSSAjustada = resultadoINSS.baseAjustada;
             pagAtual.resultadoIRRF = resultadoIRRF;
-            pagAtual.historico13   = resultado13_2a ? resultado13_2a.detalhes : [];
-            pagAtual.valorTotal13  = valorTotal13;
             
             pagAtual.totais.proventosBrutos = valorTotal13;
             pagAtual.totais.descontos = totalDescontos;
             pagAtual.totais.liquido = valorLiquido;
 
-            // Breakdown 2ª parcela
-            let detalheHtml2 = '';
-            if (resultado13_2a && resultado13_2a.detalhes.length > 0) {
-              detalheHtml2 += `<div style="background:#f0f7ff; border-left:4px solid #17a2b8; padding:8px 12px; margin:8px 0; border-radius:4px;">`;
-              detalheHtml2 += `<small style="color:#555;"><b>📊 Breakdown por mês (via histórico):</b><br>`;
-              resultado13_2a.detalhes.forEach(d => {
-                const origemIcon = d.origem === 'historico' ? '✅' : '⚠️';
-                detalheHtml2 += `${origemIcon} <b>${d.label}:</b> ${formatCurrency(d.salario)} → avo: ${formatCurrency(d.avo)}<br>`;
-              });
-              detalheHtml2 += `</small></div>`;
-            }
-
-            htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base (Ref. 13º):</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
-            htmlResultadoFinal += detalheHtml2;
-            htmlResultadoFinal += `<hr><p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PROVENTOS:</p>`;
-            htmlResultadoFinal += `<div class="resumo-item"><span>13º Salário Total (${mesesAvos}/12 com histórico):</span> <span>${formatCurrency(valorTotal13)}</span></div>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base (Ref. 13º):</span> <span>${formatCurrency(salarioBaseInput)}</span></div><hr>`;
+            htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PROVENTOS:</p>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>13º Salário Total (${mesesAvos}/12):</span> <span>${formatCurrency(valorTotal13)}</span></div>`;
             htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(pagAtual.totais.proventosBrutos)}</span></div><br>`;
             
             htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">DESCONTOS:</p>`;
@@ -594,11 +443,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             
             htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER (2ª Parcela):</span><span>${formatCurrency(pagAtual.totais.liquido)}</span></div>`;
         }
-
-    // ============================================================
-    // BLOCO: RESCISÃO
-    // ============================================================
     } else if (isRescisaoChecked) {
+        // =====================================================
+        // LÓGICA DE RESCISÃO
+        // =====================================================
         calculoAtual.tipoCalculo = "RESCISAO";
         const pagAtual = calculoAtual.pagamentoAtual;
 
@@ -616,9 +464,11 @@ if (typeof window.calculadoraInicializada === 'undefined') {
 
         const totalProventosBrutos = saldoSalario + valor13Rescisao + feriasProp + umTercoFeriasProp + avisoPrevio + valorFeriasVencidas;
 
+        // INSS sobre saldo de salário + 13º (aviso prévio e férias são isentos de INSS na rescisão)
         const baseInssRescisao = saldoSalario + valor13Rescisao;
         const resultadoINSSRescisao = calcularINSSContribuinteIndividual(baseInssRescisao, tetoInssInformado);
 
+        // IRRF: base = proventos brutos - INSS
         const baseIRRFRescisao = totalProventosBrutos - resultadoINSSRescisao.valor;
         const resultadoIRRFRescisao = calcularIRRF(baseIRRFRescisao);
 
@@ -658,10 +508,27 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(totalDescontosRescisao)}</span></div><br>`;
         htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER:</span><span>${formatCurrency(liquidoRescisao)}</span></div>`;
 
-    // ============================================================
-    // BLOCO: FÉRIAS
-    // ============================================================
     } else if (isFeriasNormaisChecked) {
+        // =====================================================
+        // LÓGICA DE FÉRIAS
+        // =====================================================
+        // Regras aplicadas:
+        // - O pagamento de férias inclui: Salário do mês de referência (período anterior às férias) +
+        //   Adiantamento das férias (proporcional aos dias de gozo) + 1/3 adicional sobre as férias.
+        // - 13º SALÁRIO NAS FÉRIAS:
+        //   * A 1ª parcela do 13º (adiantamento de 50%) DEVE ser paga junto com as férias SOMENTE
+        //     se as férias iniciarem em novembro (mês 11), por força de lei.
+        //   * Para férias em JUNHO (mês 6): o pagamento de férias cobre até 3 meses. O adiantamento
+        //     da 1ª parcela do 13º (6/12 avos = 50%) deve ser calculado e pago SEPARADAMENTE no mês 7
+        //     (julho), usando o módulo de 13º salário (1ª Parcela) com 6 avos. NÃO é incluído no
+        //     recibo de férias.
+        //   * Para férias em JULHO (mês 7): O 1/2 do 13º NÃO soma para fins de IRRF das férias.
+        //     Ele deve ser calculado e pago separadamente como 1ª Parcela do 13º, sem INSS e sem IRRF.
+        //     Na 2ª parcela (dezembro), deduz-se o adiantamento e aplicam-se INSS e IRRF sobre o total.
+        //   * Regra geral: o adiantamento do 13º junto com férias só é obrigatório em novembro (mês 11).
+        //     Em outros meses, é calculado separadamente pelo módulo de 13º salário.
+        // =====================================================
+
         calculoAtual.tipoCalculo = "FERIAS";
         const dataInicioFeriasStr = fldDataInicioFerias.value;
         const diasFeriasGozo = parseInt(fldDiasFeriasGozo.value) || 30;
@@ -675,7 +542,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         const dataFimFerias = new Date(dataInicioFerias);
         dataFimFerias.setDate(dataInicioFerias.getDate() + diasFeriasGozo - 1);
 
-        const mesInicioFerias = dataInicioFerias.getMonth() + 1;
+        const mesInicioFerias = dataInicioFerias.getMonth() + 1; // 1-12
         const anoInicioFerias = dataInicioFerias.getFullYear();
         const mesFimFerias = dataFimFerias.getMonth() + 1;
         const anoFimFerias = dataFimFerias.getFullYear();
@@ -684,9 +551,11 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         calculoAtual.dataFimFerias = dataFimFerias.toLocaleDateString('pt-BR');
         calculoAtual.diasDeFeriasSelecionados = diasFeriasGozo;
 
+        // ---- CÁLCULO DO SALÁRIO DO MÊS DE REFERÊNCIA (pagamento antes das férias) ----
+        // Dias antes do início das férias no mês de referência
         const diaInicioFerias = dataInicioFerias.getDate();
-        const diasTrabalhadosMesRef = diaInicioFerias - 1;
-        const diasNoMesRef = 30;
+        const diasTrabalhadosMesRef = diaInicioFerias - 1; // dias corridos antes do início das férias
+        const diasNoMesRef = 30; // mês comercial de 30 dias
         const diasFaltaMesRef = diasFaltaInput;
 
         const salarioProporcionalMesRef = (salarioBaseInput / diasNoMesRef) * Math.max(0, diasTrabalhadosMesRef - diasFaltaMesRef);
@@ -708,11 +577,14 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         };
         calculoAtual.pagamentoPrincipalSalario = pagamentoSalario;
 
+        // ---- CÁLCULO DAS FÉRIAS (adiantamento) ----
         const salarioFeriasIntegral = salarioBaseInput;
         const feriasProporcionais = (salarioFeriasIntegral / 30) * diasFeriasGozo;
         const umTercoFerias = feriasProporcionais / 3;
         const totalFeriasBruto = feriasProporcionais + umTercoFerias;
 
+        // INSS e IRRF sobre as férias (calculados separadamente das férias — férias são isentas de INSS; IRRF incide sobre o valor bruto das férias - INSS mensal)
+        // Na prática para contribuinte individual, INSS incide sobre as férias proporcionalmente
         const resultadoINSSFerias = calcularINSSContribuinteIndividual(feriasProporcionais, tetoInssInformado);
         const baseIRRFFerias = totalFeriasBruto - resultadoINSSFerias.valor;
         const resultadoIRRFFerias = calcularIRRF(baseIRRFFerias);
@@ -735,11 +607,15 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             totais: { liquido: liquidoTotal }
         };
 
+        // ---- AVISO SOBRE 13º SALÁRIO ----
+        // Regra: O adiantamento do 13º (1ª parcela) NÃO é incluído no recibo de férias.
+        // Ele deve ser processado separadamente no módulo de 13º salário.
+        // Exceto se as férias forem em novembro (mês 11), onde a lei exige o pagamento conjunto.
         let avisoDecimo13 = '';
         if (mesInicioFerias === 11) {
             avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#fff3cd; border-left: 4px solid #ffc107; padding: 10px;">
                 <strong>⚠️ Atenção – Férias em Novembro:</strong> Por lei, a 1ª parcela do 13º salário deve ser paga junto com as férias de novembro. 
-                Utilize o módulo <b>13º Salário → 1ª Parcela</b> para calcular e incluir o adiantamento de 50% (${Math.min(mesInicioFerias, 12)}/12 avos) e somar ao líquido total.
+                Utilize o módulo <b>13º Salário → 1ª Parcela</b> para calcular e incluir o adiantamento de 50% (${(anoInicioFerias >= 1 ? Math.min(mesInicioFerias, 12) : 12)}/12 avos) e somar ao líquido total.
             </div>`;
         } else if (mesInicioFerias === 6) {
             avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#d1ecf1; border-left: 4px solid #17a2b8; padding: 10px;">
@@ -763,10 +639,12 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             </div>`;
         }
 
+        // ---- MONTAGEM DO HTML ----
         htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>RECIBO DE FÉRIAS</b></span></div>`;
         htmlResultadoFinal += `<div class="resumo-item"><span>Período de Gozo:</span> <span>${dataInicioFerias.toLocaleDateString('pt-BR')} a ${dataFimFerias.toLocaleDateString('pt-BR')} (${diasFeriasGozo} dias)</span></div>`;
         htmlResultadoFinal += `<hr>`;
 
+        // Bloco Salário do Mês
         htmlResultadoFinal += `<p class="titulo-demonstrativo">Demonstrativo do Salário (Ref. ${mesAnoReferenciaPagamentoFormatado})</p>`;
         htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base:</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
         if (diasTrabalhadosMesRef < 30) htmlResultadoFinal += `<div class="resumo-item"><span>Salário Proporcional (${diasTrabalhadosMesRef} dias):</span> <span>${formatCurrency(salarioProporcionalMesRef)}</span></div>`;
@@ -779,6 +657,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
 
         htmlResultadoFinal += `<hr class="separador-demonstrativo">`;
 
+        // Bloco Férias
         htmlResultadoFinal += `<p class="titulo-demonstrativo">Demonstrativo das Férias (Ref. ${mesAnoFeriasFormatado})</p>`;
         htmlResultadoFinal += `<div class="resumo-item"><span>Férias (${diasFeriasGozo} dias):</span> <span>${formatCurrency(feriasProporcionais)}</span></div>`;
         htmlResultadoFinal += `<div class="resumo-item"><span>Adicional 1/3 sobre Férias:</span> <span>${formatCurrency(umTercoFerias)}</span></div>`;
@@ -792,13 +671,16 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         htmlResultadoFinal += `<div class="resumo-item total" style="font-size: 1.2em;"><span>LÍQUIDO TOTAL A RECEBER:</span><span>${formatCurrency(liquidoTotal)}</span></div>`;
         htmlResultadoFinal += avisoDecimo13;
 
+        // ---- SALDOS DOS MESES DE INÍCIO E TÉRMINO DAS FÉRIAS (se cruzar meses diferentes) ----
+        // Mês de início das férias: dias restantes no mês após o início das férias
         const totalDiasNoMesInicio = new Date(anoInicioFerias, mesInicioFerias, 0).getDate();
         const diasFeriasNoMesInicio = Math.min(diasFeriasGozo, totalDiasNoMesInicio - dataInicioFerias.getDate() + 1);
         const diasRestantesAposFerias = totalDiasNoMesInicio - dataInicioFerias.getDate() + 1 - diasFeriasNoMesInicio;
 
+        // Se as férias terminam em mês diferente do início, calcular saldo do mês de término
         if (mesFimFerias !== mesInicioFerias) {
             const diasNoMesTermino = dataFimFerias.getDate();
-            const diasTrabalhadosMesTermino = 30 - diasNoMesTermino;
+            const diasTrabalhadosMesTermino = 30 - diasNoMesTermino; // dias após o fim das férias no mês de término
             if (diasTrabalhadosMesTermino > 0) {
                 const saldoMesTermino = (salarioBaseInput / 30) * diasTrabalhadosMesTermino;
                 const resultadoINSSTermino = calcularINSSContribuinteIndividual(saldoMesTermino, tetoInssInformado);
@@ -830,10 +712,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             }
         }
 
-    // ============================================================
-    // BLOCO: PAGAMENTO MENSAL
-    // ============================================================
-    } else {
+    } else { 
+        // =====================================================
+        // LÓGICA DE PAGAMENTO MENSAL
+        // =====================================================
         calculoAtual.tipoCalculo = "MENSAL";
         const pagAtual = calculoAtual.pagamentoAtual;
 
@@ -847,7 +729,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         const baseIRRFMensal = salarioProporcional - resultadoINSSMensal.valor;
         const resultadoIRRFMensal = calcularIRRF(baseIRRFMensal);
 
-        const totalDescontos = resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
+        const totalDescontos = (descontoFaltas > 0 ? 0 : 0) + resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
         const liquido = salarioProporcional - resultadoINSSMensal.valor - resultadoIRRFMensal.valor;
 
         pagAtual.proventos.salario = salarioBaseInput;
@@ -857,7 +739,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         pagAtual.baseINSSAjustada = resultadoINSSMensal.baseAjustada;
         pagAtual.resultadoIRRF = resultadoIRRFMensal;
         pagAtual.totais.proventosBrutos = salarioProporcional;
-        pagAtual.totais.descontos = totalDescontos;
+        pagAtual.totais.descontos = resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
         pagAtual.totais.liquido = liquido;
 
         htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>PAGAMENTO MENSAL</b></span></div><hr>`;
@@ -869,7 +751,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">DESCONTOS:</p>`;
         if (resultadoINSSMensal.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(resultadoINSSMensal.baseAjustada)}):</span> <span>${formatCurrency(resultadoINSSMensal.valor)}</span></div>`;
         if (resultadoIRRFMensal.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFMensal.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFMensal.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFMensal.deducao)}</small> ${formatCurrency(resultadoIRRFMensal.valor)}</span></div>`;
-        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(totalDescontos)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(pagAtual.totais.descontos)}</span></div><br>`;
         htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER:</span><span>${formatCurrency(liquido)}</span></div>`;
     }
 
@@ -986,45 +868,15 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             if (calculoAtual.tipoCalculo === 'DECIMO_TERCEIRO') {
                 const pagAtual = calculoAtual.pagamentoAtual;
                 const { isPrimeira, avos } = pagAtual.parcelaInfo;
-
                 if (isPrimeira) {
                     addTituloSecao('13º SALÁRIO - 1ª PARCELA (ADIANTAMENTO)');
-
-                    // Breakdown do histórico no PDF
-                    if (pagAtual.historico13 && pagAtual.historico13.length > 0) {
-                        addTituloSecao('Breakdown por mês (histórico de salários):');
-                        pagAtual.historico13.forEach(d => {
-                            const origemStr = d.origem === 'historico' ? '✓' : '~fallback';
-                            addLinhaDupla(
-                                `  ${d.label} ${origemStr} (${formatCurrency(d.salario)}):`,
-                                `avo: ${formatCurrency(d.avo)}`
-                            );
-                        });
-                        addLinhaSeparadora();
-                    }
-
-                    addLinhaDupla('Valor Total 13º (' + avos + '/12 com histórico):', formatCurrency(pagAtual.valorTotal13 || pagAtual.proventos.adiantamento13 * 2));
+                    addLinhaDupla('Valor Total 13º (' + avos + '/12):', formatCurrency(pagAtual.proventos.adiantamento13 * 2));
                     addLinhaDupla('Adiantamento (50%):', formatCurrency(pagAtual.proventos.adiantamento13), true);
                     addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
-
                 } else {
                     addTituloSecao('13º SALÁRIO - 2ª PARCELA (PAGAMENTO FINAL)');
-
-                    // Breakdown no PDF da 2ª parcela
-                    if (pagAtual.historico13 && pagAtual.historico13.length > 0) {
-                        addTituloSecao('Breakdown por mês (histórico de salários):');
-                        pagAtual.historico13.forEach(d => {
-                            const origemStr = d.origem === 'historico' ? '✓' : '~fallback';
-                            addLinhaDupla(
-                                `  ${d.label} ${origemStr} (${formatCurrency(d.salario)}):`,
-                                `avo: ${formatCurrency(d.avo)}`
-                            );
-                        });
-                        addLinhaSeparadora();
-                    }
-
                     addTituloSecao('PROVENTOS');
-                    addLinhaDupla('13º Salário Total (' + avos + '/12 com histórico):', formatCurrency(pagAtual.proventos.decimoTerceiroTotal));
+                    addLinhaDupla('13º Salário Total (' + avos + '/12):', formatCurrency(pagAtual.proventos.decimoTerceiroTotal));
                     addLinhaDupla('TOTAL PROVENTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
                     linhaY += 5;
                     addTituloSecao('DESCONTOS');
@@ -1040,8 +892,8 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                     linhaY += 5;
                     addLinhaDupla('LÍQUIDO A RECEBER (2ª Parcela):', formatCurrency(pagAtual.totais.liquido), true, 12);
                 }
-
             } else if (calculoAtual.tipoCalculo === 'FERIAS') {
+                // PDF - Recibo de Férias
                 const pagSalario = calculoAtual.pagamentoPrincipalSalario;
                 const pagFerias = calculoAtual.pagamentoPrincipalFerias;
                 const pagTotal = calculoAtual.pagamentoPrincipalTotal;
@@ -1076,6 +928,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                 addLinhaDupla('LÍQUIDO TOTAL A RECEBER:', formatCurrency(pagTotal.totais.liquido), true, 12);
 
             } else {
+                // PDF - Pagamento Mensal ou Rescisão
                 const pagAtual = calculoAtual.pagamentoAtual;
                 const tipoStr = calculoAtual.tipoCalculo === 'RESCISAO' ? 'RESCISÃO DE CONTRATO' : 'PAGAMENTO MENSAL';
                 addTituloSecao(tipoStr);
@@ -1123,7 +976,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         console.error("Erro ao gerar PDF:", error);
         alert("Ocorreu um erro ao gerar o PDF: " + error.message);
     }
-  }
+}
 
   // --- Event Listeners e Inicialização ---
   btnCalcular.addEventListener('click', executarCalculo);
@@ -1208,62 +1061,62 @@ if (typeof window.calculadoraInicializada === 'undefined') {
     });
   });
 
-  async function salvarNoFirebase() {
-      if (!calculoAtual || !calculoAtual.nome) {
-          alert("Não há dados de cálculo para salvar.");
-          return;
-      }
+async function salvarNoFirebase() {
+    if (!calculoAtual || !calculoAtual.nome) {
+        alert("Não há dados de cálculo para salvar.");
+        return;
+    }
 
-      btnSalvarFirebase.disabled = true;
-      btnSalvarFirebase.textContent = 'Salvando...';
+    btnSalvarFirebase.disabled = true;
+    btnSalvarFirebase.textContent = 'Salvando...';
 
-      const { collection, addDoc, getDocs, query, where, serverTimestamp } = window.firestoreFunctions;
-      const db = window.db;
+    const { collection, addDoc, getDocs, query, where, serverTimestamp } = window.firestoreFunctions;
+    const db = window.db;
 
-      try {
-          const q = query(collection(db, "calculos"),
-              where("nome", "==", calculoAtual.nome),
-              where("referenciasSaldos", "array-contains", calculoAtual.referenciaPagamento)
-          );
-          const querySnapshot = await getDocs(q);
+    try {
+        const q = query(collection(db, "calculos"),
+            where("nome", "==", calculoAtual.nome),
+            where("referenciasSaldos", "array-contains", calculoAtual.referenciaPagamento)
+        );
+        const querySnapshot = await getDocs(q);
 
-          if (!querySnapshot.empty) {
-              alert(`Já existe um cálculo salvo para ${calculoAtual.nome} na referência ${calculoAtual.referenciaPagamento}. Não será duplicado.`);
-              return;
-          }
+        if (!querySnapshot.empty) {
+            alert(`Já existe um cálculo salvo para ${calculoAtual.nome} na referência ${calculoAtual.referenciaPagamento}. Não será duplicado.`);
+            return;
+        }
 
-          const dadosParaSalvar = {
-              nome: calculoAtual.nome,
-              referenciaPagamento: calculoAtual.referenciaPagamento,
-              tipoCalculo: calculoAtual.tipoCalculo,
-              calculoCompleto: calculoAtual,
-              dataSalvo: serverTimestamp(),
-              referenciasSaldos: []
-          };
+        const dadosParaSalvar = {
+            nome: calculoAtual.nome,
+            referenciaPagamento: calculoAtual.referenciaPagamento,
+            tipoCalculo: calculoAtual.tipoCalculo,
+            calculoCompleto: calculoAtual,
+            dataSalvo: serverTimestamp(),
+            referenciasSaldos: []
+        };
 
-          if (calculoAtual.tipoCalculo === "FERIAS") {
-              dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
-              if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
-                  dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
-              }
-              if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
-                  dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
-              }
-          } else {
-              dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
-          }
+        if (calculoAtual.tipoCalculo === "FERIAS") {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+            if (calculoAtual.pagamentoSaldoMesInicioFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesInicioFerias.referenciaISO);
+            }
+            if (calculoAtual.pagamentoSaldoMesTerminoFerias?.referenciaISO) {
+                dadosParaSalvar.referenciasSaldos.push(calculoAtual.pagamentoSaldoMesTerminoFerias.referenciaISO);
+            }
+        } else {
+            dadosParaSalvar.referenciasSaldos.push(calculoAtual.referenciaPagamento);
+        }
 
-          const docRef = await addDoc(collection(db, "calculos"), dadosParaSalvar);
-          console.log("Documento salvo com ID: ", docRef.id);
-          alert("Dados do cálculo salvos com sucesso!");
+        const docRef = await addDoc(collection(db, "calculos"), dadosParaSalvar);
+        console.log("Documento salvo com ID: ", docRef.id);
+        alert("Dados do cálculo salvos com sucesso!");
 
-      } catch (error) {
-          console.error("Erro ao salvar dados no Firebase: ", error);
-          alert("Ocorreu um erro ao salvar os dados.");
-      } finally {
-          btnSalvarFirebase.disabled = false;
-          btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
-      }
+    } catch (error) {
+        console.error("Erro ao salvar dados no Firebase: ", error);
+        alert("Ocorreu um erro ao salvar os dados.");
+    } finally {
+        btnSalvarFirebase.disabled = false;
+        btnSalvarFirebase.textContent = 'Salvar no Banco de Dados';
+    }
   }
 
   window.addEventListener('DOMContentLoaded', () => {
