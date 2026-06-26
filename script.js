@@ -444,22 +444,315 @@ if (typeof window.calculadoraInicializada === 'undefined') {
             htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER (2ª Parcela):</span><span>${formatCurrency(pagAtual.totais.liquido)}</span></div>`;
         }
     } else if (isRescisaoChecked) {
-        // Lógica de Rescisão (existente)
-        // ... (código existente)
-    } else if (isFeriasNormaisChecked) {
-        // Lógica de Férias (existente)
-        // ... (código existente)
-    } else { 
-        // Lógica de Pagamento Mensal (existente)
-        // ... (código existente)
-    }
+        // =====================================================
+        // LÓGICA DE RESCISÃO
+        // =====================================================
+        calculoAtual.tipoCalculo = "RESCISAO";
+        const pagAtual = calculoAtual.pagamentoAtual;
 
-    // O restante do código é muito grande para colar aqui, mas a estrutura acima é a correta.
-    // O código abaixo é apenas um placeholder para o restante da sua função.
-    // Garanta que você está usando o código completo que te enviei da última vez.
-    if(false) {
-        htmlResultadoFinal += `placeholder`;
-        htmlInformativoSaldos += `placeholder`;
+        const saldoSalarioDias = parseInt(fldSaldoSalarioDias.value) || 0;
+        const meses13Rescisao = parseInt(fldMeses13.value) || 0;
+        const mesesFeriasProp = parseInt(fldMesesFeriasProp.value) || 0;
+        const incluirAviso = chkAvisoPrevio.checked;
+        const valorFeriasVencidas = valorFeriasVencidasInput;
+
+        const saldoSalario = (salarioBaseInput / 30) * saldoSalarioDias;
+        const valor13Rescisao = (salarioBaseInput / 12) * meses13Rescisao;
+        const feriasProp = (salarioBaseInput / 12) * mesesFeriasProp;
+        const umTercoFeriasProp = feriasProp / 3;
+        const avisoPrevio = incluirAviso ? salarioBaseInput : 0;
+
+        const totalProventosBrutos = saldoSalario + valor13Rescisao + feriasProp + umTercoFeriasProp + avisoPrevio + valorFeriasVencidas;
+
+        // INSS sobre saldo de salário + 13º (aviso prévio e férias são isentos de INSS na rescisão)
+        const baseInssRescisao = saldoSalario + valor13Rescisao;
+        const resultadoINSSRescisao = calcularINSSContribuinteIndividual(baseInssRescisao, tetoInssInformado);
+
+        // IRRF: base = proventos brutos - INSS
+        const baseIRRFRescisao = totalProventosBrutos - resultadoINSSRescisao.valor;
+        const resultadoIRRFRescisao = calcularIRRF(baseIRRFRescisao);
+
+        const totalDescontosRescisao = resultadoINSSRescisao.valor + resultadoIRRFRescisao.valor;
+        const liquidoRescisao = totalProventosBrutos - totalDescontosRescisao;
+
+        pagAtual.proventos.saldoSalario = saldoSalario;
+        pagAtual.diasTrabalhados = saldoSalarioDias;
+        if (valor13Rescisao > 0) pagAtual.proventos.decimoTerceiroProp = valor13Rescisao;
+        if (feriasProp > 0) pagAtual.proventos.feriasProp = feriasProp;
+        if (umTercoFeriasProp > 0) pagAtual.proventos.umTercoFeriasProp = umTercoFeriasProp;
+        if (avisoPrevio > 0) pagAtual.proventos.avisoPrevio = avisoPrevio;
+        if (valorFeriasVencidas > 0) pagAtual.proventos.feriasVencidas = valorFeriasVencidas;
+
+        pagAtual.baseINSSAjustada = resultadoINSSRescisao.baseAjustada;
+        pagAtual.resultadoIRRF = resultadoIRRFRescisao;
+        if (resultadoINSSRescisao.valor > 0) pagAtual.descontos.inss = resultadoINSSRescisao.valor;
+        if (resultadoIRRFRescisao.valor > 0) pagAtual.descontos.irrf = resultadoIRRFRescisao.valor;
+
+        pagAtual.totais.proventosBrutos = totalProventosBrutos;
+        pagAtual.totais.descontos = totalDescontosRescisao;
+        pagAtual.totais.liquido = liquidoRescisao;
+
+        htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>RESCISÃO DE CONTRATO</b></span></div><hr>`;
+        htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PROVENTOS:</p>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Saldo de Salário (${saldoSalarioDias} dias):</span> <span>${formatCurrency(saldoSalario)}</span></div>`;
+        if (valor13Rescisao > 0) htmlResultadoFinal += `<div class="resumo-item"><span>13º Salário Prop. (${meses13Rescisao}/12):</span> <span>${formatCurrency(valor13Rescisao)}</span></div>`;
+        if (feriasProp > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Férias Proporcionais (${mesesFeriasProp}/12):</span> <span>${formatCurrency(feriasProp)}</span></div>`;
+        if (umTercoFeriasProp > 0) htmlResultadoFinal += `<div class="resumo-item"><span>1/3 sobre Férias Prop.:</span> <span>${formatCurrency(umTercoFeriasProp)}</span></div>`;
+        if (valorFeriasVencidas > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Férias Vencidas + 1/3:</span> <span>${formatCurrency(valorFeriasVencidas)}</span></div>`;
+        if (avisoPrevio > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Aviso Prévio Indenizado:</span> <span>${formatCurrency(avisoPrevio)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(totalProventosBrutos)}</span></div><br>`;
+
+        htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">DESCONTOS:</p>`;
+        if (resultadoINSSRescisao.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(resultadoINSSRescisao.baseAjustada)}):</span> <span>${formatCurrency(resultadoINSSRescisao.valor)}</span></div>`;
+        if (resultadoIRRFRescisao.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFRescisao.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFRescisao.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFRescisao.deducao)}</small> ${formatCurrency(resultadoIRRFRescisao.valor)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(totalDescontosRescisao)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER:</span><span>${formatCurrency(liquidoRescisao)}</span></div>`;
+
+    } else if (isFeriasNormaisChecked) {
+        // =====================================================
+        // LÓGICA DE FÉRIAS
+        // =====================================================
+        // Regras aplicadas:
+        // - O pagamento de férias inclui: Salário do mês de referência (período anterior às férias) +
+        //   Adiantamento das férias (proporcional aos dias de gozo) + 1/3 adicional sobre as férias.
+        // - 13º SALÁRIO NAS FÉRIAS:
+        //   * A 1ª parcela do 13º (adiantamento de 50%) DEVE ser paga junto com as férias SOMENTE
+        //     se as férias iniciarem em novembro (mês 11), por força de lei.
+        //   * Para férias em JUNHO (mês 6): o pagamento de férias cobre até 3 meses. O adiantamento
+        //     da 1ª parcela do 13º (6/12 avos = 50%) deve ser calculado e pago SEPARADAMENTE no mês 7
+        //     (julho), usando o módulo de 13º salário (1ª Parcela) com 6 avos. NÃO é incluído no
+        //     recibo de férias.
+        //   * Para férias em JULHO (mês 7): O 1/2 do 13º NÃO soma para fins de IRRF das férias.
+        //     Ele deve ser calculado e pago separadamente como 1ª Parcela do 13º, sem INSS e sem IRRF.
+        //     Na 2ª parcela (dezembro), deduz-se o adiantamento e aplicam-se INSS e IRRF sobre o total.
+        //   * Regra geral: o adiantamento do 13º junto com férias só é obrigatório em novembro (mês 11).
+        //     Em outros meses, é calculado separadamente pelo módulo de 13º salário.
+        // =====================================================
+
+        calculoAtual.tipoCalculo = "FERIAS";
+        const dataInicioFeriasStr = fldDataInicioFerias.value;
+        const diasFeriasGozo = parseInt(fldDiasFeriasGozo.value) || 30;
+
+        if (!dataInicioFeriasStr) {
+            alert("Por favor, informe a Data de Início das Férias.");
+            return;
+        }
+
+        const dataInicioFerias = new Date(dataInicioFeriasStr + "T00:00:00");
+        const dataFimFerias = new Date(dataInicioFerias);
+        dataFimFerias.setDate(dataInicioFerias.getDate() + diasFeriasGozo - 1);
+
+        const mesInicioFerias = dataInicioFerias.getMonth() + 1; // 1-12
+        const anoInicioFerias = dataInicioFerias.getFullYear();
+        const mesFimFerias = dataFimFerias.getMonth() + 1;
+        const anoFimFerias = dataFimFerias.getFullYear();
+
+        calculoAtual.dataInicioFerias = dataInicioFeriasStr;
+        calculoAtual.dataFimFerias = dataFimFerias.toLocaleDateString('pt-BR');
+        calculoAtual.diasDeFeriasSelecionados = diasFeriasGozo;
+
+        // ---- CÁLCULO DO SALÁRIO DO MÊS DE REFERÊNCIA (pagamento antes das férias) ----
+        // Dias antes do início das férias no mês de referência
+        const diaInicioFerias = dataInicioFerias.getDate();
+        const diasTrabalhadosMesRef = diaInicioFerias - 1; // dias corridos antes do início das férias
+        const diasNoMesRef = 30; // mês comercial de 30 dias
+        const diasFaltaMesRef = diasFaltaInput;
+
+        const salarioProporcionalMesRef = (salarioBaseInput / diasNoMesRef) * Math.max(0, diasTrabalhadosMesRef - diasFaltaMesRef);
+        const descontoFaltasMesRef = (salarioBaseInput / diasNoMesRef) * diasFaltaMesRef;
+
+        const resultadoINSSMesRef = calcularINSSContribuinteIndividual(salarioProporcionalMesRef, tetoInssInformado);
+        const baseIRRFMesRef = salarioProporcionalMesRef - resultadoINSSMesRef.valor;
+        const resultadoIRRFMesRef = calcularIRRF(baseIRRFMesRef);
+        const totalDescontosMesRef = resultadoINSSMesRef.valor + resultadoIRRFMesRef.valor + descontoFaltasMesRef;
+        const liquidoMesRef = salarioProporcionalMesRef - resultadoINSSMesRef.valor - resultadoIRRFMesRef.valor;
+
+        const pagamentoSalario = {
+            referencia: mesAnoReferenciaPagamentoFormatado,
+            proventos: { salario: salarioProporcionalMesRef, descFaltas: descontoFaltasMesRef },
+            descontos: { inss: resultadoINSSMesRef.valor, irrf: resultadoIRRFMesRef.valor },
+            baseINSSAjustada: resultadoINSSMesRef.baseAjustada,
+            resultadoIRRF: resultadoIRRFMesRef,
+            totais: { proventosBrutos: salarioProporcionalMesRef, descontos: totalDescontosMesRef, liquido: liquidoMesRef }
+        };
+        calculoAtual.pagamentoPrincipalSalario = pagamentoSalario;
+
+        // ---- CÁLCULO DAS FÉRIAS (adiantamento) ----
+        const salarioFeriasIntegral = salarioBaseInput;
+        const feriasProporcionais = (salarioFeriasIntegral / 30) * diasFeriasGozo;
+        const umTercoFerias = feriasProporcionais / 3;
+        const totalFeriasBruto = feriasProporcionais + umTercoFerias;
+
+        // INSS e IRRF sobre as férias (calculados separadamente das férias — férias são isentas de INSS; IRRF incide sobre o valor bruto das férias - INSS mensal)
+        // Na prática para contribuinte individual, INSS incide sobre as férias proporcionalmente
+        const resultadoINSSFerias = calcularINSSContribuinteIndividual(feriasProporcionais, tetoInssInformado);
+        const baseIRRFFerias = totalFeriasBruto - resultadoINSSFerias.valor;
+        const resultadoIRRFFerias = calcularIRRF(baseIRRFFerias);
+        const totalDescontosFerias = resultadoINSSFerias.valor + resultadoIRRFFerias.valor;
+        const liquidoFerias = totalFeriasBruto - totalDescontosFerias;
+
+        const mesAnoFeriasFormatado = `${String(mesInicioFerias).padStart(2,'0')}/${anoInicioFerias}`;
+        const pagamentoFerias = {
+            referencia: mesAnoFeriasFormatado,
+            proventos: { ferias: feriasProporcionais, umTerco: umTercoFerias },
+            descontos: { inss: resultadoINSSFerias.valor, irrf: resultadoIRRFFerias.valor },
+            baseINSSAjustada: resultadoINSSFerias.baseAjustada,
+            resultadoIRRF: resultadoIRRFFerias,
+            totais: { proventosBrutos: totalFeriasBruto, descontos: totalDescontosFerias, liquido: liquidoFerias }
+        };
+        calculoAtual.pagamentoPrincipalFerias = pagamentoFerias;
+
+        const liquidoTotal = liquidoMesRef + liquidoFerias;
+        calculoAtual.pagamentoPrincipalTotal = {
+            totais: { liquido: liquidoTotal }
+        };
+
+        // ---- AVISO SOBRE 13º SALÁRIO ----
+        // Regra: O adiantamento do 13º (1ª parcela) NÃO é incluído no recibo de férias.
+        // Ele deve ser processado separadamente no módulo de 13º salário.
+        // Exceto se as férias forem em novembro (mês 11), onde a lei exige o pagamento conjunto.
+        let avisoDecimo13 = '';
+        if (mesInicioFerias === 11) {
+            avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#fff3cd; border-left: 4px solid #ffc107; padding: 10px;">
+                <strong>⚠️ Atenção – Férias em Novembro:</strong> Por lei, a 1ª parcela do 13º salário deve ser paga junto com as férias de novembro. 
+                Utilize o módulo <b>13º Salário → 1ª Parcela</b> para calcular e incluir o adiantamento de 50% (${(anoInicioFerias >= 1 ? Math.min(mesInicioFerias, 12) : 12)}/12 avos) e somar ao líquido total.
+            </div>`;
+        } else if (mesInicioFerias === 6) {
+            avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#d1ecf1; border-left: 4px solid #17a2b8; padding: 10px;">
+                <strong>ℹ️ Atenção – Férias em Junho / 1ª Parcela do 13º em Julho:</strong><br>
+                Como as férias iniciam em junho, o pagamento de férias cobre o salário proporcional de junho e o adiantamento de férias.<br>
+                <b>A 1ª parcela do 13º salário (adiantamento de 50% sobre 6/12 avos) deve ser calculada e paga SEPARADAMENTE em julho (mês 07/${anoInicioFerias})</b>, 
+                utilizando o módulo <b>13º Salário → 1ª Parcela → 6 avos</b>. Ela NÃO soma para a base de IRRF das férias.
+            </div>`;
+        } else if (mesInicioFerias === 7) {
+            avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#d1ecf1; border-left: 4px solid #17a2b8; padding: 10px;">
+                <strong>ℹ️ Atenção – Férias em Julho / 1ª Parcela do 13º:</strong><br>
+                Como as férias iniciam em julho, a 1ª parcela do 13º salário (adiantamento de 50% sobre 7/12 avos) deve ser calculada e paga <b>SEPARADAMENTE</b>, 
+                utilizando o módulo <b>13º Salário → 1ª Parcela → 7 avos</b>.<br>
+                <b>O valor do adiantamento do 13º NÃO soma para a base de cálculo do IRRF das férias.</b> Na 2ª parcela (dezembro), 
+                deduz-se o adiantamento já pago e aplica-se INSS e IRRF sobre o total do 13º (12/12 avos).
+            </div>`;
+        } else {
+            avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#e2e3e5; border-left: 4px solid #6c757d; padding: 10px;">
+                <strong>ℹ️ 13º Salário:</strong> O adiantamento da 1ª parcela do 13º salário não é pago junto com as férias neste mês. 
+                Utilize o módulo <b>13º Salário → 1ª Parcela</b> separadamente, conforme o calendário de pagamento.
+            </div>`;
+        }
+
+        // ---- MONTAGEM DO HTML ----
+        htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>RECIBO DE FÉRIAS</b></span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Período de Gozo:</span> <span>${dataInicioFerias.toLocaleDateString('pt-BR')} a ${dataFimFerias.toLocaleDateString('pt-BR')} (${diasFeriasGozo} dias)</span></div>`;
+        htmlResultadoFinal += `<hr>`;
+
+        // Bloco Salário do Mês
+        htmlResultadoFinal += `<p class="titulo-demonstrativo">Demonstrativo do Salário (Ref. ${mesAnoReferenciaPagamentoFormatado})</p>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base:</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
+        if (diasTrabalhadosMesRef < 30) htmlResultadoFinal += `<div class="resumo-item"><span>Salário Proporcional (${diasTrabalhadosMesRef} dias):</span> <span>${formatCurrency(salarioProporcionalMesRef)}</span></div>`;
+        if (diasFaltaMesRef > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Desconto Faltas (${diasFaltaMesRef}d):</span> <span style="color:red;">(${formatCurrency(descontoFaltasMesRef)})</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>PROVENTOS (Salário):</span> <span>${formatCurrency(salarioProporcionalMesRef)}</span></div><br>`;
+        if (resultadoINSSMesRef.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS Proporcional:</span> <span>${formatCurrency(resultadoINSSMesRef.valor)}</span></div>`;
+        if (resultadoIRRFMesRef.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFMesRef.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFMesRef.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFMesRef.deducao)}</small> ${formatCurrency(resultadoIRRFMesRef.valor)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS (Salário):</span> <span>${formatCurrency(totalDescontosMesRef)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item total" style="background-color: #e9ecef;"><span>LÍQUIDO (Salário):</span><span>${formatCurrency(liquidoMesRef)}</span></div>`;
+
+        htmlResultadoFinal += `<hr class="separador-demonstrativo">`;
+
+        // Bloco Férias
+        htmlResultadoFinal += `<p class="titulo-demonstrativo">Demonstrativo das Férias (Ref. ${mesAnoFeriasFormatado})</p>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Férias (${diasFeriasGozo} dias):</span> <span>${formatCurrency(feriasProporcionais)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Adicional 1/3 sobre Férias:</span> <span>${formatCurrency(umTercoFerias)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>PROVENTOS (Férias):</span> <span>${formatCurrency(totalFeriasBruto)}</span></div><br>`;
+        if (resultadoINSSFerias.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS Proporcional:</span> <span>${formatCurrency(resultadoINSSFerias.valor)}</span></div>`;
+        if (resultadoIRRFFerias.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFFerias.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFFerias.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFFerias.deducao)}</small> ${formatCurrency(resultadoIRRFFerias.valor)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS (Férias):</span> <span>${formatCurrency(totalDescontosFerias)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item total" style="background-color: #e9ecef;"><span>LÍQUIDO (Férias):</span><span>${formatCurrency(liquidoFerias)}</span></div>`;
+
+        htmlResultadoFinal += `<hr class="separador-demonstrativo" style="border-top: 2px solid #28a745;">`;
+        htmlResultadoFinal += `<div class="resumo-item total" style="font-size: 1.2em;"><span>LÍQUIDO TOTAL A RECEBER:</span><span>${formatCurrency(liquidoTotal)}</span></div>`;
+        htmlResultadoFinal += avisoDecimo13;
+
+        // ---- SALDOS DOS MESES DE INÍCIO E TÉRMINO DAS FÉRIAS (se cruzar meses diferentes) ----
+        // Mês de início das férias: dias restantes no mês após o início das férias
+        const totalDiasNoMesInicio = new Date(anoInicioFerias, mesInicioFerias, 0).getDate();
+        const diasFeriasNoMesInicio = Math.min(diasFeriasGozo, totalDiasNoMesInicio - dataInicioFerias.getDate() + 1);
+        const diasRestantesAposFerias = totalDiasNoMesInicio - dataInicioFerias.getDate() + 1 - diasFeriasNoMesInicio;
+
+        // Se as férias terminam em mês diferente do início, calcular saldo do mês de término
+        if (mesFimFerias !== mesInicioFerias) {
+            const diasNoMesTermino = dataFimFerias.getDate();
+            const diasTrabalhadosMesTermino = 30 - diasNoMesTermino; // dias após o fim das férias no mês de término
+            if (diasTrabalhadosMesTermino > 0) {
+                const saldoMesTermino = (salarioBaseInput / 30) * diasTrabalhadosMesTermino;
+                const resultadoINSSTermino = calcularINSSContribuinteIndividual(saldoMesTermino, tetoInssInformado);
+                const baseIRRFTermino = saldoMesTermino - resultadoINSSTermino.valor;
+                const resultadoIRRFTermino = calcularIRRF(baseIRRFTermino);
+                const totalDescontosTermino = resultadoINSSTermino.valor + resultadoIRRFTermino.valor;
+                const liquidoTermino = saldoMesTermino - totalDescontosTermino;
+
+                const mesAnoTerminoFormatado = `${String(mesFimFerias).padStart(2,'0')}/${anoFimFerias}`;
+                const referenciaISOTermino = `${anoFimFerias}-${String(mesFimFerias).padStart(2,'0')}`;
+                calculoAtual.pagamentoSaldoMesTerminoFerias = {
+                    referencia: mesAnoTerminoFormatado,
+                    referenciaISO: referenciaISOTermino,
+                    diasTrabalhados: diasTrabalhadosMesTermino,
+                    proventos: { saldoSalario: saldoMesTermino },
+                    descontos: { inss: resultadoINSSTermino.valor, irrf: resultadoIRRFTermino.valor },
+                    baseINSSAjustada: resultadoINSSTermino.baseAjustada,
+                    resultadoIRRF: resultadoIRRFTermino,
+                    totais: { proventosBrutos: saldoMesTermino, descontos: totalDescontosTermino, liquido: liquidoTermino }
+                };
+
+                htmlInformativoSaldos += `<hr class="separador-demonstrativo"><p class="titulo-demonstrativo">Saldo do Mês de Término das Férias (${mesAnoTerminoFormatado})</p>`;
+                htmlInformativoSaldos += `<div class="resumo-item"><span>Saldo de Salário (${diasTrabalhadosMesTermino} dias trabalhados após férias):</span> <span>${formatCurrency(saldoMesTermino)}</span></div>`;
+                htmlInformativoSaldos += `<div class="resumo-item" style="font-weight:bold;"><span>PROVENTOS BRUTOS:</span> <span>${formatCurrency(saldoMesTermino)}</span></div><br>`;
+                if (resultadoINSSTermino.valor > 0) htmlInformativoSaldos += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(resultadoINSSTermino.baseAjustada)}):</span> <span>${formatCurrency(resultadoINSSTermino.valor)}</span></div>`;
+                if (resultadoIRRFTermino.valor > 0) htmlInformativoSaldos += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFTermino.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFTermino.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFTermino.deducao)}</small> ${formatCurrency(resultadoIRRFTermino.valor)}</span></div>`;
+                htmlInformativoSaldos += `<div class="resumo-item" style="font-weight:bold;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(totalDescontosTermino)}</span></div><br>`;
+                htmlInformativoSaldos += `<div class="resumo-item total"><span>LÍQUIDO (Saldo Mês Término):</span><span>${formatCurrency(liquidoTermino)}</span></div>`;
+            }
+        }
+
+    } else { 
+        // =====================================================
+        // LÓGICA DE PAGAMENTO MENSAL
+        // =====================================================
+        calculoAtual.tipoCalculo = "MENSAL";
+        const pagAtual = calculoAtual.pagamentoAtual;
+
+        const diasNoMes = 30;
+        const diasFalta = diasFaltaInput;
+        const diasTrabalhados = diasNoMes - diasFalta;
+        const descontoFaltas = diasFalta > 0 ? (salarioBaseInput / diasNoMes) * diasFalta : 0;
+        const salarioProporcional = salarioBaseInput - descontoFaltas;
+
+        const resultadoINSSMensal = calcularINSSContribuinteIndividual(salarioProporcional, tetoInssInformado);
+        const baseIRRFMensal = salarioProporcional - resultadoINSSMensal.valor;
+        const resultadoIRRFMensal = calcularIRRF(baseIRRFMensal);
+
+        const totalDescontos = (descontoFaltas > 0 ? 0 : 0) + resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
+        const liquido = salarioProporcional - resultadoINSSMensal.valor - resultadoIRRFMensal.valor;
+
+        pagAtual.proventos.salario = salarioBaseInput;
+        if (descontoFaltas > 0) pagAtual.descontos.faltas = descontoFaltas;
+        pagAtual.descontos.inss = resultadoINSSMensal.valor;
+        pagAtual.descontos.irrf = resultadoIRRFMensal.valor;
+        pagAtual.baseINSSAjustada = resultadoINSSMensal.baseAjustada;
+        pagAtual.resultadoIRRF = resultadoIRRFMensal;
+        pagAtual.totais.proventosBrutos = salarioProporcional;
+        pagAtual.totais.descontos = resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
+        pagAtual.totais.liquido = liquido;
+
+        htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>PAGAMENTO MENSAL</b></span></div><hr>`;
+        htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PROVENTOS:</p>`;
+        htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base:</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
+        if (diasFalta > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Desconto por Faltas (${diasFalta} dia(s)):</span> <span style="color: red;">(${formatCurrency(descontoFaltas)})</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(salarioProporcional)}</span></div><br>`;
+
+        htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">DESCONTOS:</p>`;
+        if (resultadoINSSMensal.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(resultadoINSSMensal.baseAjustada)}):</span> <span>${formatCurrency(resultadoINSSMensal.valor)}</span></div>`;
+        if (resultadoIRRFMensal.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>IRRF (s/ ${formatCurrency(resultadoIRRFMensal.baseCalculo)}):</span><span><small class="irrf-details">Alíq: ${(resultadoIRRFMensal.aliquota * 100).toFixed(1)}%, Ded: ${formatCurrency(resultadoIRRFMensal.deducao)}</small> ${formatCurrency(resultadoIRRFMensal.valor)}</span></div>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL DESCONTOS:</span> <span>${formatCurrency(pagAtual.totais.descontos)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item total"><span>LÍQUIDO A RECEBER:</span><span>${formatCurrency(liquido)}</span></div>`;
     }
 
     resultadoHtml.innerHTML = htmlResultadoFinal + htmlInformativoSaldos;
@@ -600,9 +893,65 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                     addLinhaDupla('LÍQUIDO A RECEBER (2ª Parcela):', formatCurrency(pagAtual.totais.liquido), true, 12);
                 }
             } else if (calculoAtual.tipoCalculo === 'FERIAS') {
-              // lógica de férias (existente)
+                // PDF - Recibo de Férias
+                const pagSalario = calculoAtual.pagamentoPrincipalSalario;
+                const pagFerias = calculoAtual.pagamentoPrincipalFerias;
+                const pagTotal = calculoAtual.pagamentoPrincipalTotal;
+
+                addTituloSecao(`Demonstrativo do Salário (Ref. ${pagSalario.referencia})`);
+                addLinhaDupla('Salário Base:', formatCurrency(calculoAtual.salarioBaseInput));
+                if (calculoAtual.diasFaltaPagAtual > 0) addLinhaDupla(`Desconto Faltas (${calculoAtual.diasFaltaPagAtual}d):`, `(${formatCurrency(pagSalario.proventos.descFaltas)})`);
+                addLinhaDupla('PROVENTOS (Salário):', formatCurrency(pagSalario.totais.proventosBrutos), true);
+                linhaY += 3;
+                if (pagSalario.descontos.inss > 0) addLinhaDupla(`INSS Proporcional:`, formatCurrency(pagSalario.descontos.inss));
+                if (pagSalario.descontos.irrf > 0) {
+                    const irrf = pagSalario.resultadoIRRF;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, `(Alíq: ${(irrf.aliquota*100).toFixed(1)}%, Ded: ${formatCurrency(irrf.deducao)}) ${formatCurrency(irrf.valor)}`);
+                }
+                addLinhaDupla('TOTAL DESCONTOS (Salário):', formatCurrency(pagSalario.totais.descontos), true);
+                linhaY += 3;
+                addLinhaDupla('LÍQUIDO (Salário):', formatCurrency(pagSalario.totais.liquido), true);
+
+                addLinhaSeparadora();
+                addTituloSecao(`Demonstrativo das Férias (Ref. ${pagFerias.referencia})`);
+                addLinhaDupla(`Férias (${calculoAtual.diasDeFeriasSelecionados} dias):`, formatCurrency(pagFerias.proventos.ferias));
+                addLinhaDupla('Adicional 1/3 sobre Férias:', formatCurrency(pagFerias.proventos.umTerco));
+                addLinhaDupla('PROVENTOS (Férias):', formatCurrency(pagFerias.totais.proventosBrutos), true);
+                linhaY += 3;
+                if (pagFerias.descontos.inss > 0) addLinhaDupla(`INSS Proporcional:`, formatCurrency(pagFerias.descontos.inss));
+                if (pagFerias.descontos.irrf > 0) {
+                    const irrf = pagFerias.resultadoIRRF;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, `(Alíq: ${(irrf.aliquota*100).toFixed(1)}%, Ded: ${formatCurrency(irrf.deducao)}) ${formatCurrency(irrf.valor)}`);
+                }
+                addLinhaDupla('TOTAL DESCONTOS (Férias):', formatCurrency(pagFerias.totais.descontos), true);
+                linhaY += 5;
+                addLinhaDupla('LÍQUIDO TOTAL A RECEBER:', formatCurrency(pagTotal.totais.liquido), true, 12);
+
             } else {
-              // lógica de mensal/rescisão (existente)
+                // PDF - Pagamento Mensal ou Rescisão
+                const pagAtual = calculoAtual.pagamentoAtual;
+                const tipoStr = calculoAtual.tipoCalculo === 'RESCISAO' ? 'RESCISÃO DE CONTRATO' : 'PAGAMENTO MENSAL';
+                addTituloSecao(tipoStr);
+                addTituloSecao('PROVENTOS');
+                if (pagAtual.proventos.salario) addLinhaDupla('Salário Base:', formatCurrency(pagAtual.proventos.salario));
+                if (pagAtual.proventos.saldoSalario) addLinhaDupla(`Saldo de Salário (${pagAtual.diasTrabalhados} dias):`, formatCurrency(pagAtual.proventos.saldoSalario));
+                if (pagAtual.proventos.decimoTerceiroProp) addLinhaDupla('13º Salário Proporcional:', formatCurrency(pagAtual.proventos.decimoTerceiroProp));
+                if (pagAtual.proventos.feriasProp) addLinhaDupla('Férias Proporcionais:', formatCurrency(pagAtual.proventos.feriasProp));
+                if (pagAtual.proventos.umTercoFeriasProp) addLinhaDupla('1/3 sobre Férias Prop.:', formatCurrency(pagAtual.proventos.umTercoFeriasProp));
+                if (pagAtual.proventos.feriasVencidas) addLinhaDupla('Férias Vencidas + 1/3:', formatCurrency(pagAtual.proventos.feriasVencidas));
+                if (pagAtual.proventos.avisoPrevio) addLinhaDupla('Aviso Prévio Indenizado:', formatCurrency(pagAtual.proventos.avisoPrevio));
+                if (pagAtual.descontos.faltas > 0) addLinhaDupla('Desconto Faltas:', `(${formatCurrency(pagAtual.descontos.faltas)})`);
+                addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
+                linhaY += 5;
+                addTituloSecao('DESCONTOS');
+                if (pagAtual.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagAtual.baseINSSAjustada)}):`, formatCurrency(pagAtual.descontos.inss));
+                if (pagAtual.descontos.irrf > 0) {
+                    const irrf = pagAtual.resultadoIRRF;
+                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, `(Alíq: ${(irrf.aliquota*100).toFixed(1)}%, Ded: ${formatCurrency(irrf.deducao)}) ${formatCurrency(irrf.valor)}`);
+                }
+                addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagAtual.totais.descontos), true);
+                linhaY += 5;
+                addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
             }
         }
         
@@ -676,9 +1025,13 @@ if (typeof window.calculadoraInicializada === 'undefined') {
           chkRescisao.disabled = true;
           chkDecimoTerceiro.checked = false;
           chkDecimoTerceiro.disabled = true;
+          if (groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'block';
+          if (groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'block';
       } else {
           chkRescisao.disabled = false;
           chkDecimoTerceiro.disabled = false;
+          if (groupDiasFeriasDiv) groupDiasFeriasDiv.style.display = 'none';
+          if (groupDataInicioFeriasDiv) groupDataInicioFeriasDiv.style.display = 'none';
       }
   });
 
