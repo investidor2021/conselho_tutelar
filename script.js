@@ -916,24 +916,63 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         const baseIRRFMensal = salarioProporcional - resultadoINSSMensal.valor;
         const resultadoIRRFMensal = calcularIRRF(baseIRRFMensal);
 
+        let pagamento13Automatica = null;
+        let valorAdiantamento13 = 0;
+
+        if (mesRefPag === 7) {
+            try {
+                pagamento13Automatica = await calcular13AutomaticoPrimeiraParcela(
+                    7,
+                    anoRefPag,
+                    salarioBaseInput,
+                    tetoInssInformado
+                );
+            } catch (e) {
+                console.warn('Erro ao calcular 13º automático para pagamento mensal no mês 7.', e);
+            }
+        }
+
+        if (pagamento13Automatica) {
+            valorAdiantamento13 = pagamento13Automatica.valorAdiantamento;
+            calculoAtual.pagamento13Adiantamento = {
+                referencia: `07/${anoRefPag}`,
+                mesesAvos: pagamento13Automatica.mesesAvos,
+                valorTotal13: pagamento13Automatica.valorTotal13,
+                adiantamento13: pagamento13Automatica.valorAdiantamento,
+                detalhes13: pagamento13Automatica.detalhes,
+                totais: {
+                    proventosBrutos: pagamento13Automatica.valorAdiantamento,
+                    descontos: 0,
+                    liquido: pagamento13Automatica.valorAdiantamento
+                }
+            };
+        }
+
+        const totalProventosBrutos = salarioProporcional + valorAdiantamento13;
         const totalDescontos = resultadoINSSMensal.valor + resultadoIRRFMensal.valor;
-        const liquido = salarioProporcional - resultadoINSSMensal.valor - resultadoIRRFMensal.valor;
+        const liquido = salarioProporcional - resultadoINSSMensal.valor - resultadoIRRFMensal.valor + valorAdiantamento13;
 
         pagAtual.proventos.salario = salarioBaseInput;
+        if (valorAdiantamento13 > 0) {
+            pagAtual.proventos.adiantamento13 = valorAdiantamento13;
+        }
         if (descontoFaltas > 0) pagAtual.descontos.faltas = descontoFaltas;
         pagAtual.descontos.inss = resultadoINSSMensal.valor;
         pagAtual.descontos.irrf = resultadoIRRFMensal.valor;
         pagAtual.baseINSSAjustada = resultadoINSSMensal.baseAjustada;
         pagAtual.resultadoIRRF = resultadoIRRFMensal;
-        pagAtual.totais.proventosBrutos = salarioProporcional;
+        pagAtual.totais.proventosBrutos = totalProventosBrutos;
         pagAtual.totais.descontos = totalDescontos;
         pagAtual.totais.liquido = liquido;
 
         htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>PAGAMENTO MENSAL</b></span></div><hr>`;
         htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">PROVENTOS:</p>`;
         htmlResultadoFinal += `<div class="resumo-item"><span>Salário Base:</span> <span>${formatCurrency(salarioBaseInput)}</span></div>`;
+        if (valorAdiantamento13 > 0) {
+            htmlResultadoFinal += `<div class="resumo-item"><span>13º Salário (1ª Parcela - Automática 7/12 avos):</span> <span>${formatCurrency(valorAdiantamento13)}</span></div>`;
+        }
         if (diasFalta > 0) htmlResultadoFinal += `<div class="resumo-item"><span>Desconto por Faltas (${diasFalta} dia(s)):</span> <span style="color: red;">(${formatCurrency(descontoFaltas)})</span></div>`;
-        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(salarioProporcional)}</span></div><br>`;
+        htmlResultadoFinal += `<div class="resumo-item" style="font-weight:bold; margin-top: 5px;"><span>TOTAL PROVENTOS BRUTOS:</span> <span>${formatCurrency(totalProventosBrutos)}</span></div><br>`;
 
         htmlResultadoFinal += `<p style="font-weight: bold; margin-bottom: 5px; color: #0056b3;">DESCONTOS:</p>`;
         if (resultadoINSSMensal.valor > 0) htmlResultadoFinal += `<div class="resumo-item"><span>INSS 11% (s/ ${formatCurrency(resultadoINSSMensal.baseAjustada)}):</span> <span>${formatCurrency(resultadoINSSMensal.valor)}</span></div>`;
@@ -1153,29 +1192,38 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                 }
 
             } else {
-                const pagAtual = calculoAtual.pagamentoAtual;
-                const tipoStr = calculoAtual.tipoCalculo === 'RESCISAO' ? 'RESCISÃO DE CONTRATO' : 'PAGAMENTO MENSAL';
-                addTituloSecao(tipoStr);
-                addTituloSecao('PROVENTOS');
-                if (pagAtual.proventos.salario) addLinhaDupla('Salário Base:', formatCurrency(pagAtual.proventos.salario));
-                if (pagAtual.proventos.saldoSalario) addLinhaDupla(`Saldo de Salário (${pagAtual.diasTrabalhados} dias):`, formatCurrency(pagAtual.proventos.saldoSalario));
-                if (pagAtual.proventos.decimoTerceiroProp) addLinhaDupla('13º Salário Proporcional:', formatCurrency(pagAtual.proventos.decimoTerceiroProp));
-                if (pagAtual.proventos.feriasProp) addLinhaDupla('Férias Proporcionais:', formatCurrency(pagAtual.proventos.feriasProp));
-                if (pagAtual.proventos.umTercoFeriasProp) addLinhaDupla('1/3 sobre Férias Prop.:', formatCurrency(pagAtual.proventos.umTercoFeriasProp));
-                if (pagAtual.proventos.feriasVencidas) addLinhaDupla('Férias Vencidas + 1/3:', formatCurrency(pagAtual.proventos.feriasVencidas));
-                if (pagAtual.proventos.avisoPrevio) addLinhaDupla('Aviso Prévio Indenizado:', formatCurrency(pagAtual.proventos.avisoPrevio));
-                if (pagAtual.descontos.faltas > 0) addLinhaDupla('Desconto Faltas:', `(${formatCurrency(pagAtual.descontos.faltas)})`);
-                addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
-                linhaY += 5;
-                addTituloSecao('DESCONTOS');
-                if (pagAtual.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagAtual.baseINSSAjustada)}):`, formatCurrency(pagAtual.descontos.inss));
-                if (pagAtual.descontos.irrf > 0) {
-                    const irrf = pagAtual.resultadoIRRF;
-                    addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, `(Alíq: ${(irrf.aliquota*100).toFixed(1)}%, Ded: ${formatCurrency(irrf.deducao)}) ${formatCurrency(irrf.valor)}`);
-                }
-                addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagAtual.totais.descontos), true);
-                linhaY += 5;
-                addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
+                 const pagAtual = calculoAtual.pagamentoAtual;
+                 const tipoStr = calculoAtual.tipoCalculo === 'RESCISAO' ? 'RESCISÃO DE CONTRATO' : 'PAGAMENTO MENSAL';
+                 addTituloSecao(tipoStr);
+                 addTituloSecao('PROVENTOS');
+                 if (pagAtual.proventos.salario) addLinhaDupla('Salário Base:', formatCurrency(pagAtual.proventos.salario));
+                 if (pagAtual.proventos.saldoSalario) addLinhaDupla(`Saldo de Salário (${pagAtual.diasTrabalhados} dias):`, formatCurrency(pagAtual.proventos.saldoSalario));
+                 if (pagAtual.proventos.adiantamento13) addLinhaDupla('13º Salário (1ª Parcela - Automática):', formatCurrency(pagAtual.proventos.adiantamento13));
+                 if (pagAtual.proventos.decimoTerceiroProp) addLinhaDupla('13º Salário Proporcional:', formatCurrency(pagAtual.proventos.decimoTerceiroProp));
+                 if (pagAtual.proventos.feriasProp) addLinhaDupla('Férias Proporcionais:', formatCurrency(pagAtual.proventos.feriasProp));
+                 if (pagAtual.proventos.umTercoFeriasProp) addLinhaDupla('1/3 sobre Férias Prop.:', formatCurrency(pagAtual.proventos.umTercoFeriasProp));
+                 if (pagAtual.proventos.feriasVencidas) addLinhaDupla('Férias Vencidas + 1/3:', formatCurrency(pagAtual.proventos.feriasVencidas));
+                 if (pagAtual.proventos.avisoPrevio) addLinhaDupla('Aviso Prévio Indenizado:', formatCurrency(pagAtual.proventos.avisoPrevio));
+                 if (pagAtual.descontos.faltas > 0) addLinhaDupla('Desconto Faltas:', `(${formatCurrency(pagAtual.descontos.faltas)})`);
+                 addLinhaDupla('TOTAL PROVENTOS BRUTOS:', formatCurrency(pagAtual.totais.proventosBrutos), true);
+                 linhaY += 5;
+                 addTituloSecao('DESCONTOS');
+                 if (pagAtual.descontos.inss > 0) addLinhaDupla(`INSS 11% (s/ ${formatCurrency(pagAtual.baseINSSAjustada)}):`, formatCurrency(pagAtual.descontos.inss));
+                 if (pagAtual.descontos.irrf > 0) {
+                     const irrf = pagAtual.resultadoIRRF;
+                     addLinhaDupla(`IRRF (s/ ${formatCurrency(irrf.baseCalculo)}):`, `(Alíq: ${(irrf.aliquota*100).toFixed(1)}%, Ded: ${formatCurrency(irrf.deducao)}) ${formatCurrency(irrf.valor)}`);
+                 }
+                 addLinhaDupla('TOTAL DESCONTOS:', formatCurrency(pagAtual.totais.descontos), true);
+                 linhaY += 5;
+                 addLinhaDupla('LÍQUIDO A RECEBER:', formatCurrency(pagAtual.totais.liquido), true, 12);
+
+                 if (calculoAtual.pagamento13Adiantamento) {
+                     addLinhaSeparadora();
+                     addTituloSecao('13º Salário - 1ª Parcela Automática');
+                     addLinhaDupla('Meses considerados:', `${calculoAtual.pagamento13Adiantamento.mesesAvos}/12`);
+                     addLinhaDupla('Valor Total 13º:', formatCurrency(calculoAtual.pagamento13Adiantamento.valorTotal13));
+                     addLinhaDupla('Adiantamento 50%:', formatCurrency(calculoAtual.pagamento13Adiantamento.adiantamento13), true);
+                 }
             }
         }
         
