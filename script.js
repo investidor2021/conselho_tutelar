@@ -139,6 +139,22 @@ if (typeof window.calculadoraInicializada === 'undefined') {
     };
   }
 
+  async function calcular13AutomaticoPrimeiraParcela(mesRefPag, anoRefPag, salarioBaseInput, tetoInssInformado) {
+    const resultado13 = await calcular13ComHistoricoLocal(
+      anoRefPag,
+      mesRefPag,
+      salarioBaseInput,
+      tetoInssInformado
+    );
+
+    return {
+      mesesAvos: mesRefPag,
+      valorTotal13: resultado13.totalBase,
+      valorAdiantamento: truncateDecimal(resultado13.totalBase / 2, 2),
+      detalhes: resultado13.detalhes
+    };
+  }
+
   // --- Funções de Cálculo ---
   const calcularINSSContribuinteIndividual = (baseCalculoBruta, tetoInssConfigurado) => {
     if (baseCalculoBruta <= 0) return { valor: 0, baseAjustada: 0 };
@@ -751,8 +767,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
         } else if (mesInicioFerias === 7) {
             avisoDecimo13 = `<div class="info" style="margin-top:15px; background:#d1ecf1; border-left: 4px solid #17a2b8; padding: 10px;">
                 <strong>ℹ️ Atenção – Férias em Julho / 1ª Parcela do 13º:</strong><br>
-                Como as férias iniciam em julho, a 1ª parcela do 13º salário (adiantamento de 50% sobre 7/12 avos) deve ser calculada e paga <b>SEPARADAMENTE</b>, 
-                utilizando o módulo <b>13º Salário → 1ª Parcela → 7 avos</b>.<br>
+                Como as férias iniciam em julho, o sistema calculará automaticamente a 1ª parcela do 13º salário (adiantamento de 50% sobre 7/12 avos) e registrará o pagamento como referência 06 para evitar confusão.<br>
                 <b>O valor do adiantamento do 13º NÃO soma para a base de cálculo do IRRF das férias.</b> Na 2ª parcela (dezembro), 
                 deduz-se o adiantamento já pago e aplica-se INSS e IRRF sobre o total do 13º (12/12 avos).
             </div>`;
@@ -761,6 +776,44 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                 <strong>ℹ️ 13º Salário:</strong> O adiantamento da 1ª parcela do 13º salário não é pago junto com as férias neste mês. 
                 Utilize o módulo <b>13º Salário → 1ª Parcela</b> separadamente, conforme o calendário de pagamento.
             </div>`;
+        }
+
+        let pagamento13Automatica = null;
+        const isAuto13Ferias = (mesRefPag === 7 && mesInicioFerias === 7) || (mesRefPag === 6 && mesInicioFerias === 6);
+        let mesReferencia13 = mesRefPag;
+        let anoReferencia13 = anoRefPag;
+
+        if (mesRefPag === 7 && mesInicioFerias === 7) {
+            mesReferencia13 = 6;
+        }
+
+        if (isAuto13Ferias) {
+            try {
+                pagamento13Automatica = await calcular13AutomaticoPrimeiraParcela(
+                    mesInicioFerias,
+                    anoRefPag,
+                    salarioBaseInput,
+                    tetoInssInformado
+                );
+            } catch (e) {
+                console.warn('Erro ao calcular 13º automático para férias com referência junho/julho.', e);
+            }
+        }
+
+        if (pagamento13Automatica) {
+            calculoAtual.pagamento13Adiantamento = {
+                referencia: `${String(mesReferencia13).padStart(2, '0')}/${anoReferencia13}`,
+                mesesAvos: pagamento13Automatica.mesesAvos,
+                valorTotal13: pagamento13Automatica.valorTotal13,
+                adiantamento13: pagamento13Automatica.valorAdiantamento,
+                detalhes13: pagamento13Automatica.detalhes
+            };
+
+            htmlResultadoFinal += `<hr class="separador-demonstrativo"><p class="titulo-demonstrativo">13º Salário - 1ª Parcela Automática</p>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Referência do 13º:</span> <span>${String(mesReferencia13).padStart(2, '0')}/${anoReferencia13}</span></div>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Meses considerados:</span> <span>${pagamento13Automatica.mesesAvos}/12</span></div>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Valor Total 13º:</span> <span>${formatCurrency(pagamento13Automatica.valorTotal13)}</span></div>`;
+            htmlResultadoFinal += `<div class="resumo-item"><span>Adiantamento 50%:</span> <span>${formatCurrency(pagamento13Automatica.valorAdiantamento)}</span></div>`;
         }
 
         htmlResultadoFinal += `<div class="resumo-item"><span>TIPO:</span> <span><b>RECIBO DE FÉRIAS</b></span></div>`;
@@ -1074,6 +1127,14 @@ if (typeof window.calculadoraInicializada === 'undefined') {
                 addLinhaDupla('TOTAL DESCONTOS (Férias):', formatCurrency(pagFerias.totais.descontos), true);
                 linhaY += 5;
                 addLinhaDupla('LÍQUIDO TOTAL A RECEBER:', formatCurrency(pagTotal.totais.liquido), true, 12);
+
+                if (calculoAtual.pagamento13Adiantamento) {
+                    addLinhaSeparadora();
+                    addTituloSecao('13º Salário - 1ª Parcela Automática');
+                    addLinhaDupla('Meses considerados:', `${calculoAtual.pagamento13Adiantamento.mesesAvos}/12`);
+                    addLinhaDupla('Valor Total 13º:', formatCurrency(calculoAtual.pagamento13Adiantamento.valorTotal13));
+                    addLinhaDupla('Adiantamento 50%:', formatCurrency(calculoAtual.pagamento13Adiantamento.adiantamento13), true);
+                }
 
             } else {
                 const pagAtual = calculoAtual.pagamentoAtual;
