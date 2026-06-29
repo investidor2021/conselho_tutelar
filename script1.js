@@ -357,9 +357,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
     const tetoInssInformado = parseFloat(tetoInssStr) || 8157.41;
     const valorFeriasVencidasInput = parseFloat(feriasVencidasStr) || 0;
     
-    const isRescisaoChecked = chkRescisao.checked;
-    const isFeriasNormaisChecked = chkFeriasNormais.checked;
-    const isDecimoTerceiroChecked = chkDecimoTerceiro.checked;
+    const regraJulhoAplicada = aplicarRegraDecimoJulho(referenciaPagamento);
+    const isRescisaoChecked = regraJulhoAplicada ? false : chkRescisao.checked;
+    const isFeriasNormaisChecked = regraJulhoAplicada ? false : chkFeriasNormais.checked;
+    const isDecimoTerceiroChecked = regraJulhoAplicada || chkDecimoTerceiro.checked;
     
     if (!nome || !referenciaPagamento || salarioBaseInput <= 0 || tetoInssInformado <= 0) {
         alert("Por favor, preencha Nome, Referência do Pagamento, Salário Base (maior que zero) e Teto INSS (maior que zero).");
@@ -984,7 +985,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   btnSalvarFirebase.addEventListener('click', salvarNoFirebase);
 
   fldNome.addEventListener('change', verificarPagamentoExistente);
-  fldReferencia.addEventListener('change', verificarPagamentoExistente);
+  fldReferencia.addEventListener('change', () => {
+      aplicarRegraDecimoJulho(fldReferencia.value);
+      verificarPagamentoExistente();
+  });
 
   if (fldDataInicioFerias) fldDataInicioFerias.addEventListener('change', calcularDataFimFerias);
   if (fldDiasFeriasGozo) fldDiasFeriasGozo.addEventListener('change', calcularDataFimFerias);
@@ -1134,6 +1138,7 @@ async function salvarNoFirebase() {
       if (!fldReferencia.value) {
           fldReferencia.value = `${anoAtual}-${mesAtual}`;
       }
+      aplicarRegraDecimoJulho(fldReferencia.value);
   });
 
   // --- LÓGICA DA NOVA ABA DE CONSULTA ---

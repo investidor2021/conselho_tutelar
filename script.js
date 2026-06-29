@@ -80,6 +80,34 @@ if (typeof window.calculadoraInicializada === 'undefined') {
       return Math.floor(num * multiplier) / multiplier;
   };
 
+  const aplicarRegraDecimoJulho = (referenciaValue) => {
+    if (!referenciaValue) return false;
+
+    const partes = String(referenciaValue).split('-');
+    const mes = parseInt(partes[1], 10);
+
+    if (mes !== 7) return false;
+
+    if (chkDecimoTerceiro) chkDecimoTerceiro.checked = true;
+    if (radioPrimeiraParcela) radioPrimeiraParcela.checked = true;
+    if (radioSegundaParcela) radioSegundaParcela.checked = false;
+    if (fldMeses13Avos) fldMeses13Avos.value = '6';
+    if (decimoTerceiroCamposDiv) decimoTerceiroCamposDiv.style.display = 'block';
+    if (groupAdiantamentoPago) groupAdiantamentoPago.style.display = 'none';
+
+    if (chkRescisao) {
+      chkRescisao.checked = false;
+      chkRescisao.disabled = true;
+    }
+    if (chkFeriasNormais) {
+      chkFeriasNormais.checked = false;
+      chkFeriasNormais.disabled = true;
+    }
+    if (groupFaltasContainer) groupFaltasContainer.style.display = 'none';
+
+    return true;
+  };
+
   // ============================================================
   // FUNÇÃO AUXILIAR: Busca salário do histórico para um mês/ano
   // Se não encontrar, usa o salário atual como fallback
@@ -441,9 +469,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
     const tetoInssInformado = parseFloat(tetoInssStr) || 8157.41;
     const valorFeriasVencidasInput = parseFloat(feriasVencidasStr) || 0;
     
-    const isRescisaoChecked = chkRescisao.checked;
-    const isFeriasNormaisChecked = chkFeriasNormais.checked;
-    const isDecimoTerceiroChecked = chkDecimoTerceiro.checked;
+    const regraJulhoAplicada = aplicarRegraDecimoJulho(referenciaPagamento);
+    const isRescisaoChecked = regraJulhoAplicada ? false : chkRescisao.checked;
+    const isFeriasNormaisChecked = regraJulhoAplicada ? false : chkFeriasNormais.checked;
+    const isDecimoTerceiroChecked = regraJulhoAplicada || chkDecimoTerceiro.checked;
     
     if (!nome || !referenciaPagamento || salarioBaseInput <= 0 || tetoInssInformado <= 0) {
         alert("Por favor, preencha Nome, Referência do Pagamento, Salário Base (maior que zero) e Teto INSS (maior que zero).");
@@ -1256,7 +1285,10 @@ if (typeof window.calculadoraInicializada === 'undefined') {
   btnSalvarFirebase.addEventListener('click', salvarNoFirebase);
 
   fldNome.addEventListener('change', verificarPagamentoExistente);
-  fldReferencia.addEventListener('change', verificarPagamentoExistente);
+  fldReferencia.addEventListener('change', () => {
+      aplicarRegraDecimoJulho(fldReferencia.value);
+      verificarPagamentoExistente();
+  });
 
   if (fldDataInicioFerias) fldDataInicioFerias.addEventListener('change', calcularDataFimFerias);
   if (fldDiasFeriasGozo) fldDiasFeriasGozo.addEventListener('change', calcularDataFimFerias);
@@ -1410,6 +1442,7 @@ if (typeof window.calculadoraInicializada === 'undefined') {
       if (!fldReferencia.value) {
           fldReferencia.value = `${anoAtual}-${mesAtual}`;
       }
+      aplicarRegraDecimoJulho(fldReferencia.value);
   });
 
   // --- LÓGICA DA NOVA ABA DE CONSULTA ---
